@@ -1,0 +1,24 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "serve dist -p 3000",
+    "build": "webpack --mode production",
+    "dev": "concurrently \"webpack --watch\" \"yarn start\""
+  },
+  "dependencies": {
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.8.6",
+    "@babel/preset-react": "^7.8.3",
+    "babel-loader": "^8.0.6",
+    "concurrently": "^5.1.0",
+    "html-webpack-plugin": "5.5.0",
+    "serve": "^11.3.0",
+    "webpack": "5.69.1",
+    "webpack-cli": "^3.3.11"
+  }
+}

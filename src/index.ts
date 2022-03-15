@@ -1,2 +1,2 @@
-export {DynamicDll} from './dynamicDll';
-export * from './constants';
+export { DynamicDll } from "./dynamicDll";
+export * from "./constants";

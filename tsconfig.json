@@ -1,4 +1,27 @@
 {
-  "extends": "./tsconfig.build.base.json",
-  "include": ["src"]
+  "compilerOptions": {
+    "rootDir": "./src",
+    "module": "commonjs",
+    "allowJs": true,
+    "types": ["node"],
+    "target": "es6",
+    "lib": ["esnext"],
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitAny": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "stripInternal": true,
+    "downlevelIteration": true,
+    "noUnusedLocals": true,
+    "declaration": true,
+    "outDir": "lib"
+  },
+  "include": ["src"],
+  "exclude": ["**/node_modules"]
 }
