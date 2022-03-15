@@ -55,13 +55,13 @@ export class DynamicDll {
     constructor(opts: IOpts) {
         this.opts = opts as DynamicDllOpts;
         this.opts.mfName = this.opts.mfName || DEFAULT_MF_NAME;
+        this.opts.cwd = this.opts.cwd || process.cwd();
         this.opts.tmpBase =
-            this.opts.tmpBase || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
+            this.opts.tmpBase || join(this.opts.cwd, DEFAULT_TMP_DIR_NAME);
         this.opts.mode = this.opts.mode || 'development';
         this.opts.webpackPath = this.opts.webpackPath || '';
         this.opts.includesLibs = this.opts.includesLibs || [];
         this.opts.excludeLibs = this.opts.excludeLibs || [];
-        this.opts.cwd = this.opts.cwd || process.cwd();
         this.cacheFilePath = join(this.opts.tmpBase, 'DLL_DEPS_CACHE.json');
         this.depBuilder = new DepBuilder({dynamicDll: this});
         this.task = [];
