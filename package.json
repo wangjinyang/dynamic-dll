@@ -18,7 +18,7 @@
     "node": ">= 14.0.0"
   },
   "scripts": {
-    "example": "cd example && yarn dev",
+    "example": "cd example && yarn start",
     "dev": "tsc -p tsconfig.json -w",
     "prebuild": "rimraf lib",
     "build": "tsc -p tsconfig.json",

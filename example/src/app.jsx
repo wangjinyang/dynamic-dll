@@ -1,5 +1,5 @@
-import React from 'react';
+import React from "react";
 
-export default function SayHelloFromA() {
-  return <h1>Hello from Application A!</h1>;
+export default function Hello() {
+  return <h1>Hello World</h1>;
 }
