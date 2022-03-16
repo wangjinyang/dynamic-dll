@@ -93,6 +93,7 @@ export class DepBuilder {
         depConfig.output!.path = join(this.opts.dynamicDll.opts.tmpBase!, MF_DIST);
         depConfig.output!.chunkFilename = `[name].js`;
         depConfig.output!.publicPath = join(MF_PUBLIC, MF_DIST);
+        depConfig.output!.uniqueName = mfName;
         // disable devtool
         depConfig.watch = false;
         // disable library
