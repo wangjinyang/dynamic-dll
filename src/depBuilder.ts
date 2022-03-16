@@ -1,10 +1,10 @@
-import {fsExtra, lodash} from "@umijs/utils";
-import {writeFileSync} from "fs";
-import {join} from "path";
-import {MF_DIST, MF_PUBLIC, REMOTE_FILE_FULL} from "./constants";
-import {Dep} from "./dep/dep";
-import {DynamicDll, IShared} from "./dynamicDll";
-import {StripSourceMapUrlPlugin} from "./webpackPlugins/stripSourceMapUrlPlugin";
+import { fsExtra, lodash } from "@umijs/utils";
+import { writeFileSync } from "fs";
+import { join } from "path";
+import { MF_DIST, MF_PUBLIC, REMOTE_FILE_FULL } from "./constants";
+import { Dep } from "./dep/dep";
+import { DynamicDll, IShared } from "./dynamicDll";
+import { StripSourceMapUrlPlugin } from "./webpackPlugins/stripSourceMapUrlPlugin";
 
 interface IOpts {
   dynamicDll: DynamicDll;
@@ -43,15 +43,14 @@ export class DepBuilder {
         } else {
           resolve(stats);
         }
-        compiler.close(() => {
-        });
+        compiler.close(() => {});
       });
     });
   }
 
   async build(opts: { deps: Dep[]; shared: IShared }) {
     this.isBuilding = true;
-    await this.writeMFFiles({deps: opts.deps});
+    await this.writeMFFiles({ deps: opts.deps });
     const newOpts = {
       ...opts,
       onBuildComplete: () => {
@@ -97,6 +96,7 @@ export class DepBuilder {
     depConfig.output!.path = join(this.opts.dynamicDll.opts.tmpBase!, MF_DIST);
     depConfig.output!.chunkFilename = `[name].js`;
     depConfig.output!.publicPath = join(MF_PUBLIC, MF_DIST);
+    depConfig.output!.uniqueName = mfName;
     // disable devtool
     depConfig.watch = false;
     // disable library
