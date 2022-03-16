@@ -1,10 +1,10 @@
-import {fsExtra, lodash} from '@umijs/utils';
-import {writeFileSync} from 'fs';
-import {join} from 'path';
-import {MF_DIST, MF_PUBLIC, REMOTE_FILE_FULL} from './constants';
-import {Dep} from './dep/dep';
-import {DynamicDll, IShared} from './dynamicDll';
-import {StripSourceMapUrlPlugin} from './webpackPlugins/stripSourceMapUrlPlugin';
+import { fsExtra, lodash } from "@umijs/utils";
+import { writeFileSync } from "fs";
+import { join } from "path";
+import { MF_DIST, MF_PUBLIC, REMOTE_FILE_FULL } from "./constants";
+import { Dep } from "./dep/dep";
+import { DynamicDll, IShared } from "./dynamicDll";
+import { StripSourceMapUrlPlugin } from "./webpackPlugins/stripSourceMapUrlPlugin";
 
 interface IOpts {
     dynamicDll: DynamicDll;
@@ -26,7 +26,7 @@ export class DepBuilder {
     }) {
         const config = this.getWebpackConfig({
             deps: opts.deps,
-            shared: opts.shared
+            shared: opts.shared,
         });
         return new Promise((resolve, reject) => {
             const compiler = this.opts.dynamicDll.opts.webpackLib(config);
@@ -37,28 +37,27 @@ export class DepBuilder {
                         reject(err);
                     }
                     if (stats) {
-                        const errorMsg = stats.toString('errors-only');
+                        const errorMsg = stats.toString("errors-only");
                         reject(new Error(errorMsg));
                     }
                 } else {
                     resolve(stats);
                 }
-                compiler.close(() => {
-                });
+                compiler.close(() => {});
             });
         });
     }
 
     async build(opts: { deps: Dep[]; shared: IShared }) {
         this.isBuilding = true;
-        await this.writeMFFiles({deps: opts.deps});
+        await this.writeMFFiles({ deps: opts.deps });
         const newOpts = {
             ...opts,
             onBuildComplete: () => {
                 this.isBuilding = false;
-                this.completeFns.forEach(fn => fn());
+                this.completeFns.forEach((fn) => fn());
                 this.completeFns = [];
-            }
+            },
         };
         await this.buildWithWebpack(newOpts);
     }
@@ -78,18 +77,22 @@ export class DepBuilder {
         // expose files
         for (const dep of opts.deps) {
             const content = await dep.buildExposeContent();
-            writeFileSync(join(tmpBase, dep.filePath), content, 'utf-8');
+            writeFileSync(join(tmpBase, dep.outputPath), content, "utf-8");
         }
 
         // index file
-        writeFileSync(join(this.opts.dynamicDll.opts.tmpBase, 'index.js'), 'export default "dynamicDll index.js";', 'utf-8');
+        writeFileSync(
+            join(this.opts.dynamicDll.opts.tmpBase, "index.js"),
+            'export default "dynamicDll index.js";',
+            "utf-8"
+        );
     }
 
     getWebpackConfig(opts: { deps: Dep[]; shared?: IShared }) {
         const mfName = this.opts.dynamicDll.opts.mfName;
         const depConfig = lodash.cloneDeep(this.opts.dynamicDll.depConfig!);
 
-        depConfig.entry = join(this.opts.dynamicDll.opts.tmpBase!, 'index.js');
+        depConfig.entry = join(this.opts.dynamicDll.opts.tmpBase!, "index.js");
         depConfig.output!.path = join(this.opts.dynamicDll.opts.tmpBase!, MF_DIST);
         depConfig.output!.chunkFilename = `[name].js`;
         depConfig.output!.publicPath = join(MF_PUBLIC, MF_DIST);
@@ -105,7 +108,7 @@ export class DepBuilder {
         depConfig.optimization.runtimeChunk = false;
         // depConfig.optimization.splitChunks = false;
         depConfig.optimization.splitChunks = {
-            chunks: 'all',
+            chunks: "all",
             maxInitialRequests: Infinity,
             minSize: 0,
             cacheGroups: {
@@ -113,32 +116,37 @@ export class DepBuilder {
                     test: /.+/,
                     name(_module: any, _chunks: any, cacheGroupKey: string) {
                         return `_${cacheGroupKey}`;
-                    }
-                }
-            }
+                    },
+                },
+            },
         };
 
         depConfig.plugins = depConfig.plugins || [];
         depConfig.plugins.push(
             new StripSourceMapUrlPlugin({
-                webpackLib: this.opts.dynamicDll.opts.webpackLib
+                webpackLib: this.opts.dynamicDll.opts.webpackLib,
             })
         );
         const exposes = opts.deps.reduce<Record<string, string>>((memo, dep) => {
-            memo[`./${dep.file}`] = join(this.opts.dynamicDll.opts.tmpBase!, dep.filePath);
+            memo[`./${dep.request}`] = join(
+                this.opts.dynamicDll.opts.tmpBase!,
+                dep.outputPath
+            );
             return memo;
         }, {});
         depConfig.plugins.push(
-            new this.opts.dynamicDll.opts.webpackLib.container.ModuleFederationPlugin({
-                library: {
-                    type: 'global',
-                    name: mfName
-                },
-                name: mfName,
-                filename: REMOTE_FILE_FULL,
-                exposes,
-                shared: opts.shared || {}
-            })
+            new this.opts.dynamicDll.opts.webpackLib.container.ModuleFederationPlugin(
+                {
+                    library: {
+                        type: "global",
+                        name: mfName,
+                    },
+                    name: mfName,
+                    filename: REMOTE_FILE_FULL,
+                    exposes,
+                    shared: opts.shared || {},
+                }
+            )
         );
         return depConfig;
     }

@@ -22,7 +22,21 @@
     "dev": "tsc -p tsconfig.json -w",
     "prebuild": "rimraf lib",
     "build": "tsc -p tsconfig.json",
-    "postinstall": "cd example && yarn"
+    "postinstall": "cd example && yarn",
+    "prepare": "husky install"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.js": [
+      "prettier --write"
+    ],
+    "*.ts?(x)": [
+      "prettier --parser=typescript --write"
+    ]
   },
   "dependencies": {
     "@umijs/bundler-utils": "4.0.0-rc.1",
@@ -30,11 +44,14 @@
     "mrmime": "1.0.0"
   },
   "devDependencies": {
-    "webpack": "5.70.0",
-    "webpack-chain": "6.5.1",
+    "husky": "^7.0.4",
+    "lint-staged": "^12.3.5",
     "npm-run-all": "^4.1.5",
+    "prettier": "^2.6.0",
     "rimraf": "^3.0.2",
-    "typescript": "^4.4.2"
+    "typescript": "^4.4.2",
+    "webpack": "5.70.0",
+    "webpack-chain": "6.5.1"
   },
   "peerDependencies": {
     "webpack": "^5.70.0"

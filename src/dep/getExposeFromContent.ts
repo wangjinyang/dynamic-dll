@@ -13,7 +13,7 @@ export async function getExposeFromContent(opts: {
         opts.filePath &&
         /\.(css|less|scss|sass|stylus|styl)$/.test(opts.filePath)
     ) {
-        return `import '${opts.dep.file}';`;
+        return `import '${opts.dep.request}';`;
     }
 
     // Support Assets Files
@@ -24,7 +24,7 @@ export async function getExposeFromContent(opts: {
         )
     ) {
         return `
-import _ from '${opts.dep.file}';
+import _ from '${opts.dep.request}';
 export default _;`.trim();
     }
 
@@ -41,9 +41,9 @@ export default _;`.trim();
     // console.log("-> isCJS", isCJS, exports);
     if (isCJS) {
         return [
-            `import _ from '${opts.dep.file}';`,
+            `import _ from '${opts.dep.request}';`,
             `export default _;`,
-            `export * from '${opts.dep.file}';`
+            `export * from '${opts.dep.request}';`
         ].join('\n');
     }
     // esm
@@ -51,7 +51,7 @@ export default _;`.trim();
         const ret = [];
         let hasExports = false;
         if (exports.includes('default')) {
-            ret.push(`import _ from '${opts.dep.file}';`);
+            ret.push(`import _ from '${opts.dep.request}';`);
             ret.push(`export default _;`);
             hasExports = true;
         }
@@ -60,18 +60,18 @@ export default _;`.trim();
             // export * from 不会有 exports，只会有 imports
             /export\s+\*\s+from/.test(opts.content)
         ) {
-            ret.push(`export * from '${opts.dep.file}';`);
+            ret.push(`export * from '${opts.dep.request}';`);
             hasExports = true;
         }
 
         if (!hasExports) {
             // 只有 __esModule 的全量导出
             if (exports.includes('__esModule') && exports.length > 1) {
-                ret.push(`import _ from '${opts.dep.file}';`);
+                ret.push(`import _ from '${opts.dep.request}';`);
                 ret.push(`export default _;`);
-                ret.push(`export * from '${opts.dep.file}';`);
+                ret.push(`export * from '${opts.dep.request}';`);
             } else {
-                ret.push(`import '${opts.dep.file}';`);
+                ret.push(`import '${opts.dep.request}';`);
             }
         }
 
