@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { MF_VA_PREFIX } from "../constants";
-import { DynamicDll } from "../dynamicDll";
+import { ModuleInfo } from "../moduleCollector";
 import { getExposeFromContent } from "./getExposeFromContent";
 
 function trimFileContent(content: string) {
@@ -13,19 +13,16 @@ export class Dep {
   public cwd: string;
   public libraryPath: string;
   public outputPath: string;
-  public dynamicDll: DynamicDll;
 
   constructor(opts: {
     request: string;
     libraryPath: string;
     cwd: string;
     version: string | null;
-    dynamicDll: DynamicDll;
   }) {
     this.request = opts.request;
     this.libraryPath = opts.libraryPath;
     this.cwd = opts.cwd;
-    this.dynamicDll = opts.dynamicDll;
     this.version = opts.version;
     const name = this.request.replace(/\//g, "_").replace(/:/g, "_");
     this.outputPath = `${MF_VA_PREFIX}${name}.js`;
@@ -52,21 +49,14 @@ export * from '${this.request}';
     });
   }
 
-  static buildDeps(opts: {
-    deps: Map<string, { version: string | null; libraryPath: string }>;
-    cwd: string;
-    dynamicDll: DynamicDll;
-  }) {
-    return Array.from(opts.deps.entries()).map(
-      ([request, { version, libraryPath }]) => {
-        return new Dep({
-          request,
-          libraryPath,
-          version,
-          cwd: opts.cwd,
-          dynamicDll: opts.dynamicDll,
-        });
-      }
-    );
+  static buildDeps(opts: { modules: [string, ModuleInfo][]; cwd: string }) {
+    return opts.modules.map(([request, { version, libraryPath }]) => {
+      return new Dep({
+        request,
+        libraryPath,
+        version,
+        cwd: opts.cwd,
+      });
+    });
   }
 }
