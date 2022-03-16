@@ -1,18 +1,21 @@
-const ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
-const webpack = require("webpack");
+const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-// const DynamicDLLPlugin = require("..");
+const ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
 
-module.exports = {
+const baseConfig = {
   mode: "development",
   entry: [
+    // Runtime code for hot module replacement
+    // // Dev server client for web socket transport, hot and live reload logic
+    // "webpack-dev-server/client/index.js?hot=true&live-reload=false",
     "webpack-hot-middleware/client?path=/__webpack_hmr&timeout=20000",
-    "./src/index",
+    path.join(__dirname, './src/index.js'),
   ],
   output: {
     publicPath: "/",
   },
-  devtool: "source-map",
+  devtool: false,
   optimization: {
     minimize: false,
   },
@@ -29,6 +32,7 @@ module.exports = {
     rules: [
       {
         test: /\.jsx?$/,
+        exclude: /node_modules/,
         loader: require.resolve("babel-loader"),
         options: {
           presets: [require.resolve("@babel/preset-react")],
@@ -38,7 +42,6 @@ module.exports = {
     ],
   },
   plugins: [
-    // new DynamicDLLPlugin(),
     new HtmlWebpackPlugin({
       template: "./public/index.html",
     }),
@@ -46,3 +49,5 @@ module.exports = {
     new webpack.HotModuleReplacementPlugin(),
   ],
 };
+
+module.exports = baseConfig;

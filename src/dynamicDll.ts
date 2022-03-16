@@ -1,19 +1,14 @@
-import {existsSync, readFileSync, statSync, writeFileSync} from 'fs';
+import {existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import {IncomingMessage, ServerResponse} from 'http';
 import {extname, join, dirname} from 'path';
-import webpack, {Configuration, container} from 'webpack';
-import {fsExtra, tryPaths} from '@umijs/utils';
-import {parseModule} from '@umijs/bundler-utils';
+import type { Configuration, container } from 'webpack';
+import type webpack from 'webpack';
 import {DEFAULT_MF_NAME, DEFAULT_TMP_DIR_NAME, MF_DIST, MF_PUBLIC, REMOTE_FILE_FULL} from './constants'
 import {lookup} from 'mrmime';
 import {Dep} from './dep/dep';
 import {DepBuilder} from './depBuilder';
 import {BuildDepPlugin} from './webpackPlugins/buildDepPlugin'
-import WebpackVirtualModules from 'webpack-virtual-modules';
 import type WebpackChain from 'webpack-chain';
-
-
-type IEntry = Record<string, string | string[]>;
 
 interface IOpts {
     cwd?: string;
@@ -92,7 +87,8 @@ export class DynamicDll {
     }
 
     writeCache(depSnapshotModules: IDepSnapshotModules, shared: IShared) {
-        fsExtra.mkdirpSync(dirname(this.cacheFilePath));
+        const cacheDir = dirname(this.cacheFilePath);
+        if(!existsSync) mkdirSync(cacheDir);
         console.log('Dynamic DLL write cache');
         writeFileSync(
             this.cacheFilePath,
@@ -186,98 +182,9 @@ export class DynamicDll {
         }
     }
 
-    modifyWebpackChain = async (chain: WebpackChain, resolveEntryFile: (s: string) => string = (entry: string): string => entry): Promise<WebpackChain> => {
-        const config = chain.toConfig();
-
-        chain.entryPoints.clear();
-
-        // entry
-        let oldEntry = config.entry;
-        const entry: IEntry = {};
-
-        const virtualModules: Record<string, string> = {};
-        // ensure entry object type
-        if (Array.isArray(oldEntry)) {
-            oldEntry = oldEntry.map(fileName => resolveEntryFile(fileName));
-        } else if (
-            Object.prototype.toString.call(oldEntry) === '[object Object]'
-        ) {
-            const newEntry = {} as IEntry;
-            Object.keys(oldEntry as IEntry).forEach(key => {
-                const value = (oldEntry as IEntry)[key];
-                if (Array.isArray(value)) {
-                    newEntry[key] = value.map(fileName =>
-                        resolveEntryFile(fileName)
-                    );
-                } else {
-                    newEntry[key] = value;
-                }
-            });
-            oldEntry = newEntry;
-        } else if (
-            Object.prototype.toString.call(oldEntry) === '[object String]'
-        ) {
-            oldEntry = {default: [resolveEntryFile(oldEntry as string)]};
-        }
-
-        const entryObject = oldEntry as Record<string, string[]>;
-
-        const entryObjectKeys = Object.keys(entryObject);
-        for (const key of entryObjectKeys) {
-            const virtualPath = `./virtual-entry/${key}.js`;
-            const virtualContent: string[] = [];
-            let index = 1;
-            const entryFiles = Array.isArray(entryObject[key])
-                ? entryObject[key]
-                : ([entryObject[key]] as unknown as string[]);
-            for (let tempEntry of entryFiles) {
-                // ensure entry is a file
-                if (statSync(tempEntry).isDirectory()) {
-                    const realEntry = tryPaths([
-                        join(tempEntry, 'index.tsx'),
-                        join(tempEntry, 'index.ts')
-                    ]);
-                    if (realEntry) {
-                        tempEntry = realEntry;
-                    } else {
-                        console.error(
-                            `entry file not found, please configure the specific entry path. (e.g. 'src/index.tsx')`
-                        );
-                    }
-                }
-                const content = readFileSync(tempEntry, 'utf-8');
-                const [_imports, exports] = await parseModule({
-                    content,
-                    path: tempEntry
-                });
-                if (exports.length) {
-                    virtualContent.push(
-                        `const k${index} = ${this.asyncImport(tempEntry)}`
-                    );
-                    for (const exportName of exports) {
-                        if (exportName === 'default') {
-                            virtualContent.push(
-                                `export default k${index}.${exportName}`
-                            );
-                        }
-                    }
-                } else {
-                    virtualContent.push(this.asyncImport(tempEntry));
-                }
-                index += 1;
-            }
-            virtualModules[virtualPath] = virtualContent.join('\n');
-            entry[key] = virtualPath;
-        }
-
-        chain.merge({
-            entry
-        });
+    modifyWebpackChain = (chain: WebpackChain): WebpackChain => {
 
         const {mfName} = this.opts;
-        chain
-            .plugin('dll-webpack-virtual-modules')
-            .use(WebpackVirtualModules, [virtualModules]);
 
         const mfConfig = {
             name: '__',
@@ -297,6 +204,31 @@ export class DynamicDll {
             }
         ]);
         return chain;
+    }
+
+    modifyWebpack = (config: Configuration): Configuration => {
+        if(!config.plugins){
+            config.plugins = []
+        }
+        const {mfName} = this.opts;
+
+        const mfConfig = {
+            name: '__',
+            remotes: {
+                [mfName]: `${mfName}@${MF_PUBLIC}${MF_DIST}${REMOTE_FILE_FULL}`
+            }
+        };
+
+
+        config.plugins.push(
+            new this.opts.webpackLib.container.ModuleFederationPlugin(mfConfig),
+            new BuildDepPlugin({
+                dynamicDll: this,
+                mfConfig,
+            })
+        )
+
+        return config;
     }
 
 }

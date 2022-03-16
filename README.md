@@ -39,7 +39,26 @@ update webpack development compiled speed
         // ...
     dynamicDll.depConfig = depConfig; // at last
     ```
-1. modifyWebpackChain by dynamicDll.modifyWebpackChain
-    ```typescript
+1. modifyWebpackChain by dynamicDll.modifyWebpack or dynamicDll.modifyWebpackChain if you use WebpackChain
+   ```typescript
+   const config = dynamicDll.modifyWebpack(orignalConfig);
+   ```
+   ```typescript
     chain = await dynamicDll.modifyWebpackChain(chain, resolveEntryFile)
     ```
+1. make sure webpack entry is [dynamic-entry](https://webpack.js.org/configuration/entry-context/#dynamic-entry)
+   1. config with webpack chain can do this step by [webpack-virtual-modules](https://www.npmjs.com/package/webpack-virtual-modules)
+   ```typescript
+   // origin config
+   {
+     entry:{
+         main: 'index.js'
+     }
+   }
+   // webpack chain
+   chain.plugin('dll-virtual-modules-plugin').use(VirtualModulesPlugin,[
+     {
+        './virtual-modules.js': 'import ("index.js")',
+     }
+   ])
+   ```
