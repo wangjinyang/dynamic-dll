@@ -1,4 +1,4 @@
-import webpack, { Compiler } from "webpack";
+import { Compiler } from "webpack";
 
 export class StripSourceMapUrlPlugin {
   apply(compiler: Compiler): void {
@@ -6,7 +6,7 @@ export class StripSourceMapUrlPlugin {
       compilation.hooks.processAssets.tap(
         {
           name: "StripSourceMapUrlPlugin",
-          stage: webpack.Compilation.PROCESS_ASSETS_STAGE_DERIVED,
+          stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_DERIVED,
         },
         assets => {
           Object.keys(assets)
@@ -19,7 +19,7 @@ export class StripSourceMapUrlPlugin {
                 .replace(/# sourceMappingURL=(.+?\.map)/g, "# $1");
               compilation.updateAsset(
                 filename,
-                new webpack.sources.RawSource(source),
+                new compiler.webpack.sources.RawSource(source),
               );
             });
         },
