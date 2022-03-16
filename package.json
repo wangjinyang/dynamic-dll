@@ -40,10 +40,14 @@
   },
   "dependencies": {
     "@umijs/bundler-utils": "4.0.0-rc.1",
-    "@umijs/utils": "4.0.0-rc.1",
-    "mrmime": "1.0.0"
+    "fs-extra": "^10.0.1",
+    "lodash": "^4.17.21",
+    "mrmime": "1.0.0",
+    "webpack-virtual-modules": "^0.4.3"
   },
   "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
+    "@types/lodash": "^4.14.180",
     "husky": "^7.0.4",
     "lint-staged": "^12.3.5",
     "npm-run-all": "^4.1.5",

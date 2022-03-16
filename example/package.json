@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node script/dev.js"
+    "clean": "rimraf .dynamicdll dist",
+    "start": "yarn clean && node script/dev.js"
   },
   "dependencies": {
     "react": "^16.13.1",

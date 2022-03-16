@@ -1,26 +1,17 @@
-import type { Compiler } from "webpack";
-
-interface IOpts {
-  webpackLib: any;
-}
+import webpack, { Compiler } from "webpack";
 
 export class StripSourceMapUrlPlugin {
-  opts: IOpts;
-  constructor(opts: IOpts) {
-    this.opts = opts;
-  }
-
   apply(compiler: Compiler): void {
-    compiler.hooks.compilation.tap("StripSourceMapUrlPlugin", (compilation) => {
+    compiler.hooks.compilation.tap("StripSourceMapUrlPlugin", compilation => {
       compilation.hooks.processAssets.tap(
         {
           name: "StripSourceMapUrlPlugin",
-          stage: this.opts.webpackLib.Compilation.PROCESS_ASSETS_STAGE_DERIVE,
+          stage: webpack.Compilation.PROCESS_ASSETS_STAGE_DERIVED,
         },
-        (assets) => {
+        assets => {
           Object.keys(assets)
-            .filter((filename) => /\.js$/.test(filename))
-            .forEach((filename) => {
+            .filter(filename => /\.js$/.test(filename))
+            .forEach(filename => {
               const asset = assets[filename];
               const source = asset
                 .source()
@@ -28,10 +19,10 @@ export class StripSourceMapUrlPlugin {
                 .replace(/# sourceMappingURL=(.+?\.map)/g, "# $1");
               compilation.updateAsset(
                 filename,
-                new this.opts.webpackLib.sources.RawSource(source)
+                new webpack.sources.RawSource(source),
               );
             });
-        }
+        },
       );
     });
   }
