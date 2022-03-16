@@ -22,7 +22,8 @@
     "dev": "tsc -p tsconfig.json -w",
     "prebuild": "rimraf lib",
     "build": "tsc -p tsconfig.json",
-    "postinstall": "cd example && yarn"
+    "postinstall": "cd example && yarn",
+    "prepare": "husky install"
   },
   "husky": {
     "hooks": {
