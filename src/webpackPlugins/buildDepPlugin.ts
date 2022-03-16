@@ -33,8 +33,6 @@ export class BuildDepPlugin {
         this.matchCache = new Map()
         this.opts = opts
         const {parseOptions} = require(join(this.opts.dynamicDll.opts.webpackPath, 'webpack/lib/container/options'));
-        console.log(require.resolve(join(this.opts.dynamicDll.opts.webpackPath, 'webpack/lib/container/options')))
-        console.log(require.resolve(join(this.opts.dynamicDll.opts.webpackPath, 'webpack/lib/container/RemoteModule')))
 
         this._remotes = parseOptions(
             opts.mfConfig.remotes,

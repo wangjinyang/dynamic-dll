@@ -1,11 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom";
 
-import App from "./app";
+// import SayHelloFromB from 'application_b/SayHelloFromB';
+
+import App from './app';
 
 ReactDOM.render(
   <>
     <App />
+    {/*<SayHelloFromB />*/}
   </>,
   document.getElementById("root")
 );
