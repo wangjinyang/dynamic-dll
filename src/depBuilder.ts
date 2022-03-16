@@ -28,7 +28,6 @@ export class DepBuilder {
             deps: opts.deps,
             shared: opts.shared
         });
-        console.log("-> config", config);
         return new Promise((resolve, reject) => {
             const compiler = this.opts.dynamicDll.opts.webpackLib(config);
             compiler.run((err, stats) => {

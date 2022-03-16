@@ -52,7 +52,7 @@ export class BuildDepPlugin {
         const {depSnapshotModules, shared = {}} = opts.dynamicDll.loadCache()
         this.depSnapshotModules = depSnapshotModules
         this.needBuild = false
-        this.shared = this.opts.dynamicDll.opts.shared
+        this.shared = this.opts.dynamicDll.opts.shared || {};
         if (!lodash.isEqual(shared, this.shared)) {
             this.needBuild = true
         }
