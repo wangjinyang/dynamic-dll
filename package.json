@@ -27,8 +27,7 @@
   "dependencies": {
     "@umijs/bundler-utils": "4.0.0-rc.1",
     "@umijs/utils": "4.0.0-rc.1",
-    "mrmime": "1.0.0",
-    "webpack-virtual-modules": "0.4.3"
+    "mrmime": "1.0.0"
   },
   "devDependencies": {
     "webpack": "5.70.0",
