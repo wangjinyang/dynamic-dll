@@ -1,6 +1,6 @@
-import { readFileSync } from "fs";
+import { readFileSync } from "fs-extra";
+import { join } from "path";
 import { MF_VA_PREFIX } from "../constants";
-import { ModuleInfo } from "../moduleCollector";
 import { getExposeFromContent } from "./getExposeFromContent";
 
 function trimFileContent(content: string) {
@@ -10,22 +10,20 @@ function trimFileContent(content: string) {
 export class Dep {
   public request: string;
   public version: string | null;
-  public cwd: string;
   public libraryPath: string;
-  public outputPath: string;
+  public filename: string;
 
   constructor(opts: {
+    outputPath: string;
     request: string;
     libraryPath: string;
-    cwd: string;
     version: string | null;
   }) {
     this.request = opts.request;
     this.libraryPath = opts.libraryPath;
-    this.cwd = opts.cwd;
     this.version = opts.version;
     const name = this.request.replace(/\//g, "_").replace(/:/g, "_");
-    this.outputPath = `${MF_VA_PREFIX}${name}.js`;
+    this.filename = join(opts.outputPath, `${MF_VA_PREFIX}${name}.js`);
   }
 
   async buildExposeContent() {
@@ -46,17 +44,6 @@ export * from '${this.request}';
       content,
       filePath: this.libraryPath,
       dep: this,
-    });
-  }
-
-  static buildDeps(opts: { modules: [string, ModuleInfo][]; cwd: string }) {
-    return opts.modules.map(([request, { version, libraryPath }]) => {
-      return new Dep({
-        request,
-        libraryPath,
-        version,
-        cwd: opts.cwd,
-      });
     });
   }
 }

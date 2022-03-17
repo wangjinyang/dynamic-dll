@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "fs";
+import { readFileSync, statSync } from "fs-extra";
 import { IncomingMessage, ServerResponse } from "http";
 import { extname, join } from "path";
 import lodash from "lodash";
@@ -7,15 +7,13 @@ import type WebpackChain from "webpack-chain";
 import {
   NAME,
   DEFAULT_TMP_DIR_NAME,
-  OUTPUT_DIR,
   DETAULT_PUBLIC_PATH,
-  CACHE_FILENAME,
   DYNAMIC_DLL_FILENAME,
 } from "./constants";
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
-import { DLLBuilder } from "./dllBuilder";
-import { ModuleSnapshot, ShareConfig } from "./moduleCollector";
+import { DLLBuilder, ShareConfig, getMetadata, getDllDir } from "./dllBuilder";
+import { ModuleCollector, ModuleSnapshot } from "./moduleCollector";
 import {
   DynamicDLLPlugin,
   DynamicDLLPluginOptions,
@@ -31,59 +29,33 @@ interface IOpts {
   shared?: ShareConfig;
 }
 
-type IDepKey = string;
-type IDepValue = {
-  libraryPath: string;
-  version: string | null;
-};
-
-export type IDepSnapshotModules = Map<IDepKey, IDepValue>;
-
 export class DynamicDll {
+  private _opts: IOpts;
   private _dllBuilder: DLLBuilder;
   private _dir: string;
   private _webpackPath: string;
   private _dllPluginOptions: DynamicDLLPluginOptions;
 
   constructor(opts: IOpts) {
-    const cwd = opts.cwd || process.cwd();
-    this._dir = opts.dir || join(cwd, DEFAULT_TMP_DIR_NAME);
+    this._opts = opts;
+    this._dir = opts.dir || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
     this._webpackPath = opts.webpackPath || "webpack";
+    const collector = new ModuleCollector({
+      include: opts.include,
+      exclude: opts.exclude,
+      metadata: getMetadata(this._dir),
+    });
     this._dllBuilder = new DLLBuilder({
-      cwd,
-      webpackConfig: opts.dllWebpackConfig,
-      outputDir: this._dir,
+      collector,
     });
     this._dllPluginOptions = {
       dllName: NAME,
-      shared: opts.shared || {},
-      include: opts.include,
-      exclude: opts.exclude,
+      collector,
       webpackPath: this._webpackPath,
-      cache: join(this._dir, CACHE_FILENAME),
       onSnapshot: snapshot => {
-        this.buildDLL(snapshot);
+        this._buildDLL(snapshot);
       },
     };
-  }
-
-  asyncImport(content: string) {
-    return `import('${content}');`;
-  }
-
-  async buildDLL(snapshot: ModuleSnapshot): Promise<void> {
-    let hasError = false;
-    try {
-      await this._dllBuilder.build(snapshot);
-    } catch (e) {
-      console.error(`[ Dynamic Dll Compiled Error ]:\n`, e);
-      hasError = true;
-    }
-    if (!hasError) {
-      console.log(
-        `[ Dynamic Dll Compiled Success ]: if hmr not worked. You may need to reload page by yourself!`,
-      );
-    }
   }
 
   middleware = async (
@@ -102,7 +74,7 @@ export class DynamicDll {
         new RegExp(`^${DETAULT_PUBLIC_PATH}`),
         "/",
       );
-      const filePath = join(this._dir, OUTPUT_DIR, relativePath);
+      const filePath = join(getDllDir(this._dir), relativePath);
       const { mtime } = statSync(filePath);
       // Get the last modification time of the file and convert the time into a world time string
       let lastModified = mtime.toUTCString();
@@ -168,6 +140,15 @@ export class DynamicDll {
     return config;
   };
 
+  private async _buildDLL(snapshot: ModuleSnapshot): Promise<void> {
+    await this._dllBuilder.build(snapshot, {
+      outputDir: this._dir,
+      shared: this._opts.shared,
+      webpackConfig: this._opts.dllWebpackConfig,
+      force: process.env.DYNAMIC_DLL_FORCE_BUILD === "true",
+    });
+  }
+
   private _makeAsyncEntry(entry: any) {
     const asyncEntry: Record<string, string> = {};
     const virtualModules: Record<string, string> = {};
@@ -185,7 +166,7 @@ export class DynamicDll {
         ? entryObject[key]
         : ([entryObject[key]] as unknown as string[]);
       for (let entry of entryFiles) {
-        virtualContent.push(this.asyncImport(entry));
+        virtualContent.push(`import('${entry}');`);
       }
       virtualModules[virtualPath] = virtualContent.join("\n");
       asyncEntry[key] = virtualPath;

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "clean": "rimraf .dynamicdll dist",
-    "start": "yarn clean && node script/dev.js"
+    "start": "node script/dev.js"
   },
   "dependencies": {
     "react": "^16.13.1",
