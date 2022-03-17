@@ -1,5 +1,5 @@
-const path = require('path');
-const webpack = require('webpack');
+const path = require("path");
+const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
 
@@ -10,7 +10,7 @@ const baseConfig = {
     // // Dev server client for web socket transport, hot and live reload logic
     // "webpack-dev-server/client/index.js?hot=true&live-reload=false",
     "webpack-hot-middleware/client?path=/__webpack_hmr&timeout=20000",
-    path.join(__dirname, './src/index.js'),
+    path.join(__dirname, "./src/index.jsx"),
   ],
   output: {
     publicPath: "/",
@@ -24,9 +24,6 @@ const baseConfig = {
   },
   resolve: {
     extensions: [".jsx", ".js", ".json"],
-    alias: {
-      "@remote": "application_b/SayHelloFromB",
-    },
   },
   module: {
     rules: [
