@@ -1,42 +1,27 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import lodash from "lodash";
-import path from "path";
+import { Metadata, ModuleInfo } from "./dllBuilder";
 
 const NODE_MODULES = /node_modules/;
 
-export type ShareConfig = Record<string, any>;
-
 export interface ModuleCollectorOptions {
-  cache: string;
-  shared: ShareConfig;
+  metadata: Metadata;
   include?: RegExp[];
   exclude?: RegExp[];
 }
 
 export interface ModuleSnapshot {
-  modules: [string, ModuleInfo][];
-  shared: ShareConfig;
-}
-
-export interface ModuleInfo {
-  libraryPath: string;
-  version: string;
+  [key: string]: ModuleInfo;
 }
 
 export class ModuleCollector {
   private _include;
   private _exclude;
-  private _modules = new Map<string, ModuleInfo>();
-  private _shared: ShareConfig = {};
-  private _update = false;
-  private _cache: string;
+  private _modules!: Record<string, ModuleInfo>;
+  private _changed!: boolean;
 
   constructor(options: ModuleCollectorOptions) {
-    this._cache = options.cache;
-    this._shared = options.shared;
     this._include = options.include || [];
     this._exclude = options.exclude || [];
-    this._loadCache();
+    this.updateSnapshot(options.metadata.dll);
   }
 
   shouldCollect({
@@ -68,75 +53,37 @@ export class ModuleCollector {
     return NODE_MODULES.test(resource);
   }
 
-  hasUpdate() {
-    return this._update;
+  hasChanged() {
+    return this._changed;
   }
 
   add(id: string, { libraryPath, version }: ModuleInfo) {
     const modules = this._modules;
-    const mod = modules.get(id);
+    const mod = modules[id];
     if (!mod) {
-      modules.set(id, {
+      modules[id] = {
         libraryPath,
         version,
-      });
-      this._update = true;
+      };
+      this._changed = true;
     } else {
       const { libraryPath: oldLibraryPath, version: oldVersion } = mod;
       if (oldLibraryPath !== libraryPath || oldVersion !== version) {
-        modules.set(id, {
+        modules[id] = {
           libraryPath,
           version,
-        });
-        this._update = true;
+        };
+        this._changed = true;
       }
     }
   }
 
   snapshot(): ModuleSnapshot {
-    this._update = false;
-
-    setImmediate(() => {
-      this._saveCache();
-    });
-
-    return {
-      modules: Array.from(this._modules),
-      shared: this._shared,
-    };
+    return { ...this._modules };
   }
 
-  private _loadCache() {
-    if (!existsSync(this._cache)) {
-      return;
-    }
-
-    const { depSnapshotModules, shared = {} } = JSON.parse(
-      readFileSync(this._cache, "utf-8"),
-    );
-
-    this._modules = new Map(depSnapshotModules);
-    if (!lodash.isEqual(this._shared, shared)) {
-      this._update = true;
-    }
-    this._shared = shared;
-  }
-
-  private _saveCache() {
-    const cacheDir = path.dirname(this._cache);
-    if (!existsSync) mkdirSync(cacheDir);
-
-    writeFileSync(
-      this._cache,
-      JSON.stringify(
-        {
-          depSnapshotModules: Array.from(this._modules),
-          shared: this._shared,
-        },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
+  updateSnapshot(snapshot: ModuleSnapshot) {
+    this._changed = false;
+    this._modules = snapshot;
   }
 }
