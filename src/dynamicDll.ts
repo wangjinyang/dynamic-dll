@@ -107,7 +107,7 @@ export class DynamicDll {
       return acc;
     }, {} as Record<string, string[]>);
     const { asyncEntry, virtualModules } = this._makeAsyncEntry(entry);
-
+    chain.entryPoints.clear();
     chain.merge({
       entry: asyncEntry,
     });
