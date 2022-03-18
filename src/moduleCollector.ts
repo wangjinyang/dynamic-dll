@@ -67,8 +67,8 @@ export class ModuleCollector {
       };
       this._changed = true;
     } else {
-      const { libraryPath: oldLibraryPath, version: oldVersion } = mod;
-      if (oldLibraryPath !== libraryPath || oldVersion !== version) {
+      const { version: oldVersion } = mod;
+      if (oldVersion !== version) {
         modules[id] = {
           libraryPath,
           version,
