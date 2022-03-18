@@ -1,4 +1,3 @@
-import { readFileSync } from "fs-extra";
 import { join } from "path";
 import { MF_VA_PREFIX } from "../constants";
 import { getExposeFromContent } from "./getExposeFromContent";
@@ -29,7 +28,7 @@ export class Dep {
   async buildExposeContent() {
     // node natives
     // @ts-ignore
-    const isNodeNatives = !!process.binding("natives")[this.file];
+    const isNodeNatives = !!process.binding("natives")[this.request];
     if (isNodeNatives) {
       return trimFileContent(`
 import _ from '${this.request}';
@@ -38,12 +37,6 @@ export * from '${this.request}';
       `);
     }
 
-    const content = readFileSync(this.libraryPath, "utf-8");
-
-    return await getExposeFromContent({
-      content,
-      filePath: this.libraryPath,
-      dep: this,
-    });
+    return await getExposeFromContent(this.libraryPath);
   }
 }

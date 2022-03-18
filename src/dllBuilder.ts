@@ -323,7 +323,7 @@ export class DLLBuilder {
     if (this._nextBuild) {
       const param = this._nextBuild;
       this._nextBuild = null;
-      await this._buildDll(param, options);
+      return await this._buildDll(param, options);
     }
     metadata.buildHash = getBuildHash(metadata.hash, snapshot);
 

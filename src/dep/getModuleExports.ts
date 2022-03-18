@@ -1,24 +1,24 @@
-import { init, parse } from '@umijs/bundler-utils/compiled/es-module-lexer';
-import { transform } from '@umijs/bundler-utils/compiled/esbuild';
-import { extname } from 'path';
-import { getCJSExports } from './getCJSExports';
+import { init, parse } from "@umijs/bundler-utils/compiled/es-module-lexer";
+import { transform } from "@umijs/bundler-utils/compiled/esbuild";
+import { extname } from "path";
+import { getCJSExports } from "./getCJSExports";
 
 export async function getModuleExports({
   content,
-  filePath
+  libraryPath,
 }: {
-  filePath: string;
+  libraryPath: string;
   content: string;
 }) {
   // Support tsx and jsx
-  if (filePath && /\.(tsx|jsx)$/.test(filePath)) {
+  if (/\.(tsx|jsx)$/.test(libraryPath)) {
     content = (
       await transform(content, {
         sourcemap: false,
-        sourcefile: filePath,
-        format: 'esm',
-        target: 'es6',
-        loader: extname(filePath).slice(1) as 'tsx' | 'jsx'
+        sourcefile: libraryPath,
+        format: "esm",
+        target: "es6",
+        loader: extname(libraryPath).slice(1) as "tsx" | "jsx",
       })
     ).code;
   }
@@ -30,12 +30,12 @@ export async function getModuleExports({
   let cjsEsmExports = null;
   if (isCJS) {
     cjsEsmExports = getCJSExports({ content });
-    if (cjsEsmExports.includes('__esModule')) {
+    if (cjsEsmExports.includes("__esModule")) {
       isCJS = false;
     }
   }
   return {
     exports: cjsEsmExports || exports,
-    isCJS
+    isCJS,
   };
 }
