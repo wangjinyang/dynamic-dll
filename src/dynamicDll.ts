@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from "fs-extra";
 import { IncomingMessage, ServerResponse } from "http";
 import { extname, join } from "path";
+import invariant from "tiny-invariant";
 import lodash from "lodash";
 import type { Configuration } from "webpack";
 import type WebpackChain from "webpack-chain";
@@ -152,7 +153,6 @@ export class DynamicDll {
   private _makeAsyncEntry(entry: any) {
     const asyncEntry: Record<string, string> = {};
     const virtualModules: Record<string, string> = {};
-    // ensure entry object type
     const entryObject = (
       lodash.isString(entry) || lodash.isArray(entry)
         ? { main: ([] as any).concat(entry) }
@@ -166,6 +166,7 @@ export class DynamicDll {
         ? entryObject[key]
         : ([entryObject[key]] as unknown as string[]);
       for (let entry of entryFiles) {
+        invariant(lodash.isString(entry), "wepback entry must be a string");
         virtualContent.push(`import('${entry}');`);
       }
       virtualModules[virtualPath] = virtualContent.join("\n");
