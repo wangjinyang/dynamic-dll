@@ -1,5 +1,4 @@
-import type { Configuration } from "webpack";
-import webpack from "webpack";
+import { webpack, Configuration } from "webpack";
 import {
   removeSync,
   renameSync,
@@ -11,7 +10,7 @@ import {
   mkdirpSync,
   emptyDirSync,
 } from "fs-extra";
-import lodash from "lodash";
+import WebpackChain from "webpack-chain";
 import { join } from "path";
 import { createHash } from "crypto";
 import {
@@ -19,14 +18,14 @@ import {
   NAME,
   DYNAMIC_DLL_FILENAME,
   METADATA_FILENAME,
-} from "./constants";
-import { Dep } from "./dep/dep";
-import { ModuleSnapshot, ModuleCollector } from "./moduleCollector";
-import { StripSourceMapUrlPlugin } from "./webpackPlugins/stripSourceMapUrlPlugin";
+} from "../constants";
+import { Dep } from "../dep/dep";
+import { ModuleSnapshot, ModuleCollector } from "../moduleCollector";
+import { getConfig } from "./webpack-config";
 
 export interface BuildOptions {
   outputDir: string;
-  webpackConfig?: Configuration;
+  configWebpack?: (chain: WebpackChain) => WebpackChain;
   shared?: ShareConfig;
   force?: boolean;
 }
@@ -87,9 +86,9 @@ function getHash(text: string): string {
  * @param {BuildOptions} options
  * @returns {string}
  */
-function getDepHash(options: BuildOptions): string {
+function getMainHash(options: BuildOptions): string {
+  // todo: add dynamic-dll version number
   let content = JSON.stringify({
-    webpackConfig: options.webpackConfig,
     shared: options.shared,
   });
   return getHash(content);
@@ -103,87 +102,32 @@ function getWebpackConfig({
   deps,
   entry,
   outputDir,
-  webpackConfig,
   shared,
 }: {
   deps: Dep[];
-  webpackConfig: Configuration;
   entry: string;
   outputDir: string;
   shared?: ShareConfig;
 }) {
-  const name = NAME;
-  const dllConfig = lodash.cloneDeep(webpackConfig || {});
-
-  dllConfig.entry = entry;
-  if (!dllConfig.output) {
-    dllConfig.output = {};
-  }
-  dllConfig.output.path = join(outputDir);
-  dllConfig.output.chunkFilename = `[name].js`;
-  dllConfig.output.publicPath = DETAULT_PUBLIC_PATH;
-  dllConfig.output.uniqueName = name;
-  dllConfig.watch = false;
-  // disable library
-  if (dllConfig.output.library) delete dllConfig.output.library;
-  if (dllConfig.output.libraryTarget) delete dllConfig.output.libraryTarget;
-
-  // merge all deps to vendor
-  dllConfig.optimization ||= {};
-  dllConfig.optimization.runtimeChunk = false;
-  // dllConfig.optimization.splitChunks = false;
-  dllConfig.optimization.splitChunks = {
-    chunks: "all",
-    maxInitialRequests: Infinity,
-    minSize: 0,
-    cacheGroups: {
-      vendor: {
-        test: /.+/,
-        name(_module: any, _chunks: any, cacheGroupKey: string) {
-          return `_${cacheGroupKey}`;
-        },
-      },
-    },
-  };
-
-  dllConfig.plugins = dllConfig.plugins || [];
-  dllConfig.plugins.push(new StripSourceMapUrlPlugin());
   const exposes = deps.reduce<Record<string, string>>((memo, dep) => {
     memo[`./${dep.request}`] = dep.filename;
     return memo;
   }, {});
-  dllConfig.plugins.push(
-    new webpack.container.ModuleFederationPlugin({
-      library: {
-        type: "global",
-        name,
-      },
-      name,
-      filename: DYNAMIC_DLL_FILENAME,
-      exposes,
-      shared,
-    }),
-  );
-  return dllConfig;
+
+  const chain = getConfig({
+    name: NAME,
+    entry,
+    filename: DYNAMIC_DLL_FILENAME,
+    outputDir,
+    publicPath: DETAULT_PUBLIC_PATH,
+    shared,
+    exposes,
+  });
+
+  return chain.toConfig();
 }
 
-async function buildDeps({
-  snapshot,
-  dir,
-}: {
-  snapshot: ModuleSnapshot;
-  dir: string;
-}) {
-  const deps = Object.entries(snapshot).map(
-    ([request, { version, libraryPath }]) => {
-      return new Dep({
-        request,
-        libraryPath,
-        version,
-        outputPath: dir,
-      });
-    },
-  );
+async function buildDeps({ deps, dir }: { deps: Dep[]; dir: string }) {
   mkdirpSync(dir);
 
   // expose files
@@ -204,20 +148,7 @@ async function buildDeps({
   return deps;
 }
 
-async function webpackBuild(opts: {
-  deps: Dep[];
-  webpackConfig: Configuration;
-  entry: string;
-  outputDir: string;
-  shared?: ShareConfig;
-}) {
-  const config = getWebpackConfig({
-    entry: opts.entry,
-    deps: opts.deps,
-    webpackConfig: opts.webpackConfig,
-    outputDir: opts.outputDir,
-    shared: opts.shared,
-  });
+async function webpackBuild(config: Configuration) {
   return new Promise((resolve, reject) => {
     const compiler = webpack(config);
     compiler.run((err, stats) => {
@@ -237,7 +168,7 @@ async function webpackBuild(opts: {
   });
 }
 
-export class DLLBuilder {
+export class Bundler {
   private _nextBuild: ModuleSnapshot | null = null;
   private _completeFns: Function[] = [];
   private _isBuilding = false;
@@ -279,13 +210,13 @@ export class DLLBuilder {
     snapshot: ModuleSnapshot,
     options: BuildOptions,
   ): Promise<Metadata | null> {
-    const { shared = {}, webpackConfig = {}, outputDir, force } = options;
-    const depHash = getDepHash(options);
+    const { shared = {}, outputDir, force } = options;
 
+    const mainHash = getMainHash(options);
     const dllDir = getDllDir(outputDir);
     const preMetadata = getMetadata(outputDir);
     const metadata: Metadata = {
-      hash: depHash,
+      hash: mainHash,
       buildHash: preMetadata.buildHash,
       dll: snapshot,
       shared: shared,
@@ -307,18 +238,29 @@ export class DLLBuilder {
       emptyDirSync(dllPendingDir);
     }
 
-    const srcDir = getDepsDir(outputDir);
-    const deps = await buildDeps({
-      snapshot,
-      dir: srcDir,
-    });
-    await webpackBuild({
+    const depsDir = getDepsDir(dllPendingDir);
+    const deps = Object.entries(snapshot).map(
+      ([request, { version, libraryPath }]) => {
+        return new Dep({
+          request,
+          libraryPath,
+          version,
+          outputPath: depsDir,
+        });
+      },
+    );
+    await buildDeps({
       deps,
-      entry: join(srcDir, "index.js"),
-      shared,
-      webpackConfig,
-      outputDir: dllPendingDir,
+      dir: depsDir,
     });
+    await webpackBuild(
+      getWebpackConfig({
+        deps,
+        entry: join(depsDir, "index.js"),
+        shared,
+        outputDir: dllPendingDir,
+      }),
+    );
 
     if (this._nextBuild) {
       const param = this._nextBuild;

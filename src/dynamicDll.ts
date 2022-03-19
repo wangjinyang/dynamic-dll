@@ -13,7 +13,7 @@ import {
 } from "./constants";
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
-import { DLLBuilder, ShareConfig, getMetadata, getDllDir } from "./dllBuilder";
+import { Bundler, ShareConfig, getMetadata, getDllDir } from "./bundler";
 import { ModuleCollector, ModuleSnapshot } from "./moduleCollector";
 import {
   DynamicDLLPlugin,
@@ -24,7 +24,6 @@ interface IOpts {
   cwd?: string;
   dir?: string;
   webpackPath?: string;
-  dllWebpackConfig?: any;
   include?: RegExp[];
   exclude?: RegExp[];
   shared?: ShareConfig;
@@ -32,7 +31,7 @@ interface IOpts {
 
 export class DynamicDll {
   private _opts: IOpts;
-  private _dllBuilder: DLLBuilder;
+  private _bundler: Bundler;
   private _dir: string;
   private _webpackPath: string;
   private _dllPluginOptions: DynamicDLLPluginOptions;
@@ -46,7 +45,7 @@ export class DynamicDll {
       exclude: opts.exclude,
       metadata: getMetadata(this._dir),
     });
-    this._dllBuilder = new DLLBuilder({
+    this._bundler = new Bundler({
       collector,
     });
     this._dllPluginOptions = {
@@ -70,7 +69,7 @@ export class DynamicDll {
       return next();
     }
 
-    this._dllBuilder.onBuildComplete(() => {
+    this._bundler.onBuildComplete(() => {
       const relativePath = url.replace(
         new RegExp(`^${DETAULT_PUBLIC_PATH}`),
         "/",
@@ -142,10 +141,9 @@ export class DynamicDll {
   };
 
   private async _buildDLL(snapshot: ModuleSnapshot): Promise<void> {
-    await this._dllBuilder.build(snapshot, {
+    await this._bundler.build(snapshot, {
       outputDir: this._dir,
       shared: this._opts.shared,
-      webpackConfig: this._opts.dllWebpackConfig,
       force: process.env.DYNAMIC_DLL_FORCE_BUILD === "true",
     });
   }

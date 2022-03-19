@@ -8,28 +8,6 @@ const express = require("express");
 const { DynamicDll } = require("../..");
 const app = express();
 
-function dynamicEntry(tempEntry) {
-  if (Array.isArray(tempEntry)) {
-    return () => new Promise(resolve => resolve(tempEntry));
-  } else if (Object.prototype.toString.call(tempEntry) === "[object Object]") {
-    const newEntry = {};
-    const keys = Object.keys(tempEntry);
-    console.log("-> keys", keys);
-    for (let k of keys) {
-      // @ts-ignore
-      if (Object.prototype.toString.call(tempEntry[k]) === "[object Object]") {
-        newEntry[k] = tempEntry[k];
-      } else {
-        newEntry[k] = changeDynamicEntry(tempEntry[k]);
-      }
-    }
-    return newEntry;
-  } else if (Object.prototype.toString.call(tempEntry) === "[object String]") {
-    return () => new Promise(resolve => resolve(tempEntry));
-  }
-  return tempEntry;
-}
-
 const dllConfig = lodash.cloneDeep(baseConfig);
 dllConfig.plugins = [];
 const dynamicDll = new DynamicDll({

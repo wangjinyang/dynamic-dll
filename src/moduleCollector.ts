@@ -1,4 +1,4 @@
-import { Metadata, ModuleInfo } from "./dllBuilder";
+import { Metadata, ModuleInfo } from "./bundler";
 
 const NODE_MODULES = /node_modules/;
 
