@@ -1,9 +1,14 @@
-import { Metadata, ModuleInfo } from "./bundler";
+import { getMetadata, getUpate } from "./metadata";
 
 const NODE_MODULES = /node_modules/;
 
+export interface ModuleInfo {
+  libraryPath: string;
+  version: string;
+}
+
 export interface ModuleCollectorOptions {
-  metadata: Metadata;
+  modules: ModuleSnapshot;
   include?: RegExp[];
   exclude?: RegExp[];
 }
@@ -12,7 +17,7 @@ export interface ModuleSnapshot {
   [key: string]: ModuleInfo;
 }
 
-export class ModuleCollector {
+class ModuleCollector {
   private _include;
   private _exclude;
   private _modules!: Record<string, ModuleInfo>;
@@ -21,7 +26,8 @@ export class ModuleCollector {
   constructor(options: ModuleCollectorOptions) {
     this._include = options.include || [];
     this._exclude = options.exclude || [];
-    this.updateSnapshot(options.metadata.dll);
+    this._changed = false;
+    this._modules = options.modules;
   }
 
   shouldCollect({
@@ -79,11 +85,30 @@ export class ModuleCollector {
   }
 
   snapshot(): ModuleSnapshot {
-    return { ...this._modules };
-  }
-
-  updateSnapshot(snapshot: ModuleSnapshot) {
+    const snapshot = { ...this._modules };
     this._changed = false;
-    this._modules = snapshot;
+    return snapshot;
   }
+}
+
+export type { ModuleCollector };
+
+export function getModuleCollector(
+  options: Omit<ModuleCollectorOptions, "modules"> & {
+    cacheDir: string;
+  },
+) {
+  const modules = getMetadata(options.cacheDir).modules;
+  const discoveredModules = getUpate(options.cacheDir).discovered;
+  const collector = new ModuleCollector({
+    include: options.include,
+    exclude: options.exclude,
+    modules,
+  });
+
+  Object.keys(discoveredModules).forEach(name => {
+    collector.add(name, discoveredModules[name]);
+  });
+
+  return collector;
 }

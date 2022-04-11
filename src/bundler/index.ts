@@ -3,8 +3,6 @@ import {
   removeSync,
   renameSync,
   existsSync,
-  readJSONSync,
-  writeJSONSync,
   writeFileSync,
   writeFile,
   mkdirpSync,
@@ -13,14 +11,11 @@ import {
 import WebpackChain from "webpack-chain";
 import { join } from "path";
 import { createHash } from "crypto";
-import {
-  DETAULT_PUBLIC_PATH,
-  NAME,
-  DLL_FILENAME,
-  METADATA_FILENAME,
-} from "../constants";
+import { DETAULT_PUBLIC_PATH, NAME, DLL_FILENAME } from "../constants";
 import { Dep } from "../dep/dep";
-import { ModuleSnapshot, ModuleCollector } from "../moduleCollector";
+import { ModuleSnapshot } from "../moduleCollector";
+import { getMetadata, writeMetadata, Metadata } from "../metadata";
+import { version, getDepsDir, getDllDir, getDllPendingDir } from "../utils";
 import { getConfig } from "./webpack-config";
 
 export interface BuildOptions {
@@ -32,49 +27,7 @@ export interface BuildOptions {
 
 export type ShareConfig = Record<string, any>;
 
-export interface ModuleInfo {
-  libraryPath: string;
-  version: string;
-}
-
-export interface Metadata {
-  hash: string;
-  buildHash: string;
-  dll: Record<string, ModuleInfo>;
-  shared: Record<string, ShareConfig>;
-}
-
-export function getMetadata(root: string): Metadata {
-  const file = join(getDllDir(root), METADATA_FILENAME);
-  if (!existsSync(file)) {
-    return {
-      hash: "",
-      buildHash: "",
-      dll: {},
-      shared: {},
-    };
-  }
-
-  return readJSONSync(file) as Metadata;
-}
-
-function writeMetadata(root: string, content: Metadata) {
-  writeJSONSync(join(root, METADATA_FILENAME), content, {
-    spaces: 2,
-  });
-}
-
-function getDepsDir(dir: string) {
-  return join(dir, "deps");
-}
-
-export function getDllDir(dir: string) {
-  return join(dir, "current");
-}
-
-function getDllPendingDir(dir: string) {
-  return join(dir, "pending");
-}
+type OnBuildComplete = (error?: null | Error) => void;
 
 function getHash(text: string): string {
   return createHash("sha256").update(text).digest("hex").substring(0, 8);
@@ -87,11 +40,10 @@ function getHash(text: string): string {
  * @returns {string}
  */
 function getMainHash(options: BuildOptions): string {
-  // todo: add dynamic-dll version number
   let content = JSON.stringify({
     shared: options.shared,
   });
-  return getHash(content);
+  return getHash([version, content].join(""));
 }
 
 function getBuildHash(hash: string, snapshot: ModuleSnapshot) {
@@ -168,15 +120,29 @@ async function webpackBuild(config: Configuration) {
   });
 }
 
+function isSnapshotSame(pre: ModuleSnapshot, cur: ModuleSnapshot): boolean {
+  const keys = Object.keys(cur);
+
+  for (let index = 0; index < keys.length; index++) {
+    const id = keys[index];
+    const preItem = pre[id];
+    const nextItem = cur[id];
+    if (!preItem) {
+      return false;
+    }
+
+    if (preItem.version !== nextItem.version) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export class Bundler {
   private _nextBuild: ModuleSnapshot | null = null;
-  private _completeFns: Function[] = [];
+  private _completeFns: OnBuildComplete[] = [];
   private _isBuilding = false;
-  private _collector: ModuleCollector;
-
-  constructor(opts: { collector: ModuleCollector }) {
-    this._collector = opts.collector;
-  }
 
   async build(snapshot: ModuleSnapshot, options: BuildOptions) {
     if (this._isBuilding) {
@@ -184,32 +150,34 @@ export class Bundler {
       return;
     }
 
-    let hasError = false;
+    let error: any = null;
     this._isBuilding = true;
-    let metadata: Metadata | null = null;
+    let hasBuild: boolean = false;
     try {
-      metadata = await this._buildDll(snapshot, options);
-    } catch (error) {
-      console.error(`[ Dynamic Dll Compiled Error ]:\n`, error);
-      hasError = true;
+      [hasBuild] = await this._buildDll(snapshot, options);
+    } catch (err) {
+      error = err;
     }
 
     this._isBuilding = false;
-    this._completeFns.forEach(fn => fn());
+
+    if (error) {
+      console.error(`[@shuvi/dll]: Bundle Error`);
+      console.error(error);
+    }
+
+    this._completeFns.forEach(fn => fn(error));
     this._completeFns = [];
 
-    if (metadata && !hasError) {
-      this._collector.updateSnapshot(snapshot);
-      console.log(
-        `[ Dynamic Dll Compiled Success ]: if hmr not worked. You may need to reload page by yourself!`,
-      );
+    if (hasBuild) {
+      console.log(`[@shuvi/dll]: Bundle Success`);
     }
   }
 
   private async _buildDll(
     snapshot: ModuleSnapshot,
     options: BuildOptions,
-  ): Promise<Metadata | null> {
+  ): Promise<[boolean, Metadata]> {
     const { shared = {}, outputDir, force } = options;
 
     const mainHash = getMainHash(options);
@@ -218,16 +186,15 @@ export class Bundler {
     const metadata: Metadata = {
       hash: mainHash,
       buildHash: preMetadata.buildHash,
-      dll: snapshot,
-      shared: shared,
+      modules: snapshot,
     };
 
     if (
       !force &&
-      !this._collector.hasChanged() &&
-      preMetadata.hash === metadata.hash
+      preMetadata.hash === metadata.hash &&
+      isSnapshotSame(preMetadata.modules, snapshot)
     ) {
-      return null;
+      return [false, preMetadata];
     }
 
     const dllPendingDir = getDllPendingDir(outputDir);
@@ -274,10 +241,10 @@ export class Bundler {
     removeSync(dllDir);
     renameSync(dllPendingDir, dllDir);
 
-    return metadata;
+    return [true, metadata];
   }
 
-  onBuildComplete(fn: Function) {
+  onBuildComplete(fn: OnBuildComplete) {
     if (this._isBuilding) {
       this._completeFns.push(fn);
     } else {

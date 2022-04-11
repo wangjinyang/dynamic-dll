@@ -13,12 +13,11 @@ import {
 } from "./constants";
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
-import { Bundler, ShareConfig, getMetadata, getDllDir } from "./bundler";
-import { ModuleCollector, ModuleSnapshot } from "./moduleCollector";
-import {
-  DynamicDLLPlugin,
-  DynamicDLLPluginOptions,
-} from "./webpackPlugins/DynamicDLLPlugin";
+import { Bundler, ShareConfig } from "./bundler";
+import { getModuleCollector, ModuleSnapshot } from "./moduleCollector";
+import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
+import { getMetadata, writeUpdate, getUpate } from "./metadata";
+import { getDllDir } from "./utils";
 
 interface IOpts {
   cwd?: string;
@@ -34,28 +33,35 @@ export class DynamicDll {
   private _bundler: Bundler;
   private _dir: string;
   private _webpackPath: string;
-  private _dllPluginOptions: DynamicDLLPluginOptions;
+  private _dllPlugin: DynamicDLLPlugin;
 
   constructor(opts: IOpts) {
     this._opts = opts;
     this._dir = opts.dir || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
     this._webpackPath = opts.webpackPath || "webpack";
-    const collector = new ModuleCollector({
+    const collector = getModuleCollector({
       include: opts.include,
       exclude: opts.exclude,
-      metadata: getMetadata(this._dir),
+      cacheDir: this._dir,
     });
-    this._bundler = new Bundler({
-      collector,
-    });
-    this._dllPluginOptions = {
+    this._bundler = new Bundler();
+
+    let hasBuilt = false;
+    this._dllPlugin = new DynamicDLLPlugin({
       dllName: NAME,
       collector,
       webpackPath: this._webpackPath,
-      onSnapshot: snapshot => {
-        this._buildDLL(snapshot);
+      onSnapshot: async snapshot => {
+        if (hasBuilt) {
+          writeUpdate(this._dir, snapshot);
+          return;
+        }
+
+        await this._buildDLL(snapshot);
+        this._dllPlugin.disableDllReference();
+        hasBuilt = true;
       },
-    };
+    });
   }
 
   middleware = async (
@@ -117,9 +123,7 @@ export class DynamicDll {
     chain
       .plugin("dynamic-dll-mf")
       .use(webpack.container.ModuleFederationPlugin, [this._getMFconfig()]);
-    chain
-      .plugin("dynamic-dll-plugin")
-      .use(DynamicDLLPlugin, [this._dllPluginOptions]);
+    chain.plugin("dynamic-dll-plugin").use(this._dllPlugin);
     return chain;
   };
 
@@ -134,7 +138,7 @@ export class DynamicDll {
     config.plugins.push(
       new WebpackVirtualModules(virtualModules),
       new webpack.container.ModuleFederationPlugin(this._getMFconfig()),
-      new DynamicDLLPlugin(this._dllPluginOptions),
+      this._dllPlugin,
     );
 
     return config;

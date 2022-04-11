@@ -21,6 +21,7 @@ export class DynamicDLLPlugin {
   private _timer: null | ReturnType<typeof setTimeout>;
   private _matchCache: Map<string, string>;
   private _onSnapshot: SnapshotListener;
+  private _disabled: boolean;
 
   constructor(opts: DynamicDLLPluginOptions) {
     this._webpackPath = opts.webpackPath;
@@ -30,6 +31,11 @@ export class DynamicDLLPlugin {
     this._collector = opts.collector;
     this._matchCache = new Map();
     this._timer = null;
+    this._disabled = false;
+  }
+
+  disableDllReference() {
+    this._disabled = true;
   }
 
   apply(compiler: Compiler): void {
@@ -41,6 +47,7 @@ export class DynamicDLLPlugin {
           resolveData.request = replaceValue;
         }
       });
+
       nmf.hooks.createModule.tap(PLUGIN_NAME, (_createData, resolveData) => {
         const collector = this._collector;
         const { createData = {}, request } = resolveData;
@@ -54,9 +61,7 @@ export class DynamicDLLPlugin {
         ) {
           return;
         }
-        const name = this._dllName;
-        const replaceValue = `${name}/${request}`;
-        // console.log("-> replaceValue", replaceValue);
+
         const {
           resourceResolveData: { descriptionFileData: { version = null } } = {},
         } = createData;
@@ -64,9 +69,14 @@ export class DynamicDLLPlugin {
           libraryPath: resource,
           version,
         });
+        if (this._disabled) {
+          return;
+        }
+
+        const name = this._dllName;
+        const replaceValue = `${name}/${request}`;
         resolveData.request = replaceValue;
         this._matchCache.set(request, replaceValue);
-
         const RemoteModule = require(`${this._webpackPath}/lib/container/RemoteModule`);
         return new RemoteModule(
           resolveData.request,
@@ -82,6 +92,7 @@ export class DynamicDLLPlugin {
         if (this._timer) {
           clearTimeout(this._timer);
         }
+
         this._timer = setTimeout(() => {
           const snapshot = this._collector.snapshot();
           this._onSnapshot(snapshot);
