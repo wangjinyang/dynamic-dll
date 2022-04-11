@@ -46,6 +46,7 @@
     "@babel/runtime": "7.17.8",
     "@umijs/bundler-utils": "4.0.0-rc.1",
     "babel-loader": "8.2.3",
+    "babel-loader": "8.2.3",
     "fs-extra": "^10.0.1",
     "lodash": "^4.17.21",
     "mrmime": "1.0.0",
@@ -62,10 +63,10 @@
     "prettier": "^2.6.0",
     "rimraf": "^3.0.2",
     "typescript": "^4.4.2",
-    "webpack": "5.70.0",
+    "webpack": "5.72.0",
     "webpack-chain": "^6.5.1"
   },
   "peerDependencies": {
-    "webpack": "^5.70.0"
+    "webpack": "^5.72.0"
   }
 }

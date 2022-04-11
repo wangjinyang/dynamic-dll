@@ -15,6 +15,7 @@ node_modules
 # workspace
 .vscode/
 .idea/
+.history
 
 # build output
 /lib/
