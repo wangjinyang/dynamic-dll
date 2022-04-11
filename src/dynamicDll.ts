@@ -9,7 +9,7 @@ import {
   NAME,
   DEFAULT_TMP_DIR_NAME,
   DETAULT_PUBLIC_PATH,
-  DYNAMIC_DLL_FILENAME,
+  DLL_FILENAME,
 } from "./constants";
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
@@ -144,7 +144,7 @@ export class DynamicDll {
     await this._bundler.build(snapshot, {
       outputDir: this._dir,
       shared: this._opts.shared,
-      force: process.env.DYNAMIC_DLL_FORCE_BUILD === "true",
+      force: process.env.DLL_FORCE_BUILD === "true",
     });
   }
 
@@ -181,11 +181,11 @@ export class DynamicDll {
     return {
       name: "__",
       remotes: {
-        // [NAME]: `${NAME}@${DETAULT_PUBLIC_PATH}${DYNAMIC_DLL_FILENAME}`,
+        // [NAME]: `${NAME}@${DETAULT_PUBLIC_PATH}${DLL_FILENAME}`,
         // https://webpack.js.org/concepts/module-federation/#promise-based-dynamic-remotes
         [NAME]: `
 promise new Promise(resolve => {
-  const remoteUrl = '${DETAULT_PUBLIC_PATH}${DYNAMIC_DLL_FILENAME}';
+  const remoteUrl = '${DETAULT_PUBLIC_PATH}${DLL_FILENAME}';
   const script = document.createElement('script');
   script.src = remoteUrl;
   script.onload = () => {

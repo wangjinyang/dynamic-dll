@@ -16,7 +16,7 @@ import { createHash } from "crypto";
 import {
   DETAULT_PUBLIC_PATH,
   NAME,
-  DYNAMIC_DLL_FILENAME,
+  DLL_FILENAME,
   METADATA_FILENAME,
 } from "../constants";
 import { Dep } from "../dep/dep";
@@ -117,7 +117,7 @@ function getWebpackConfig({
   const chain = getConfig({
     name: NAME,
     entry,
-    filename: DYNAMIC_DLL_FILENAME,
+    filename: DLL_FILENAME,
     outputDir,
     publicPath: DETAULT_PUBLIC_PATH,
     shared,
