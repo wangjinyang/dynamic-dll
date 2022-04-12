@@ -1,5 +1,5 @@
-import { init, parse } from "@umijs/bundler-utils/compiled/es-module-lexer";
-import { transform } from "@umijs/bundler-utils/compiled/esbuild";
+import { init, parse } from "es-module-lexer";
+import { transform } from "esbuild";
 import { extname } from "path";
 import { getCJSExports } from "./getCJSExports";
 

@@ -2,7 +2,6 @@ import { readFileSync, statSync } from "fs-extra";
 import { IncomingMessage, ServerResponse } from "http";
 import { extname, join } from "path";
 import invariant from "tiny-invariant";
-import lodash from "lodash";
 import type { Configuration } from "webpack";
 import type WebpackChain from "webpack-chain";
 import {
@@ -16,8 +15,8 @@ import WebpackVirtualModules from "webpack-virtual-modules";
 import { Bundler, ShareConfig } from "./bundler";
 import { getModuleCollector, ModuleSnapshot } from "./moduleCollector";
 import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
-import { getMetadata, writeUpdate, getUpate } from "./metadata";
-import { getDllDir } from "./utils";
+import { writeUpdate } from "./metadata";
+import { getDllDir, isString, isArray } from "./utils";
 
 interface IOpts {
   cwd?: string;
@@ -156,7 +155,7 @@ export class DynamicDll {
     const asyncEntry: Record<string, string> = {};
     const virtualModules: Record<string, string> = {};
     const entryObject = (
-      lodash.isString(entry) || lodash.isArray(entry)
+      isString(entry) || isArray(entry)
         ? { main: ([] as any).concat(entry) }
         : entry
     ) as Record<string, string[]>;
@@ -164,11 +163,11 @@ export class DynamicDll {
     for (const key of Object.keys(entryObject)) {
       const virtualPath = `./dynamic-dll-virtual-entry/${key}.js`;
       const virtualContent: string[] = [];
-      const entryFiles = lodash.isArray(entryObject[key])
+      const entryFiles = isArray(entryObject[key])
         ? entryObject[key]
         : ([entryObject[key]] as unknown as string[]);
       for (let entry of entryFiles) {
-        invariant(lodash.isString(entry), "wepback entry must be a string");
+        invariant(isString(entry), "wepback entry must be a string");
         virtualContent.push(`import('${entry}');`);
       }
       virtualModules[virtualPath] = virtualContent.join("\n");
