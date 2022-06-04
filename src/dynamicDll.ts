@@ -3,6 +3,7 @@ import { IncomingMessage, ServerResponse } from "http";
 import { extname, join } from "path";
 import invariant from "tiny-invariant";
 import type { Configuration } from "webpack";
+import type * as webpackType from "webpack";
 import type WebpackChain from "webpack-chain";
 import {
   NAME,
@@ -18,26 +19,31 @@ import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
 import { writeUpdate } from "./metadata";
 import { getDllDir, isString, isArray } from "./utils";
 
+type IResolveWebpackModule = <T extends string>(
+  path: T,
+) => T extends `webpack/${infer R}` ? any : never;
 interface IOpts {
   cwd?: string;
   dir?: string;
-  webpackPath?: string;
+  resolveWebpackModule?: IResolveWebpackModule;
   include?: RegExp[];
   exclude?: RegExp[];
   shared?: ShareConfig;
+  externals: Configuration["externals"];
+  esmFullSpecific?: Boolean;
 }
 
 export class DynamicDll {
   private _opts: IOpts;
   private _bundler: Bundler;
   private _dir: string;
-  private _webpackPath: string;
+  private _resolveWebpackModule: IResolveWebpackModule;
   private _dllPlugin: DynamicDLLPlugin;
 
   constructor(opts: IOpts) {
     this._opts = opts;
     this._dir = opts.dir || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
-    this._webpackPath = opts.webpackPath || "webpack";
+    this._resolveWebpackModule = opts.resolveWebpackModule || require;
     const collector = getModuleCollector({
       include: opts.include,
       exclude: opts.exclude,
@@ -49,7 +55,7 @@ export class DynamicDll {
     this._dllPlugin = new DynamicDLLPlugin({
       dllName: NAME,
       collector,
-      webpackPath: this._webpackPath,
+      resolveWebpackModule: this._resolveWebpackModule,
       onSnapshot: async snapshot => {
         if (hasBuilt) {
           writeUpdate(this._dir, snapshot);
@@ -105,7 +111,7 @@ export class DynamicDll {
   };
 
   modifyWebpackChain = (chain: WebpackChain): WebpackChain => {
-    const webpack = require(this._webpackPath);
+    const webpack = this._resolveWebpackModule("webpack") as typeof webpackType;
     const entries = chain.entryPoints.entries();
     const entry = Object.keys(entries).reduce((acc, name) => {
       acc[name] = entries[name].values();
@@ -130,7 +136,7 @@ export class DynamicDll {
     const { asyncEntry, virtualModules } = this._makeAsyncEntry(config.entry);
 
     config.entry = asyncEntry;
-    const webpack = require(this._webpackPath);
+    const webpack = this._resolveWebpackModule("webpack") as typeof webpackType;
     if (!config.plugins) {
       config.plugins = [];
     }
@@ -147,6 +153,8 @@ export class DynamicDll {
     await this._bundler.build(snapshot, {
       outputDir: this._dir,
       shared: this._opts.shared,
+      externals: this._opts.externals,
+      esmFullSpecific: this._opts.esmFullSpecific,
       force: process.env.DLL_FORCE_BUILD === "true",
     });
   }
