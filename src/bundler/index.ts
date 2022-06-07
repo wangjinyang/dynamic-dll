@@ -22,6 +22,8 @@ export interface BuildOptions {
   outputDir: string;
   configWebpack?: (chain: WebpackChain) => WebpackChain;
   shared?: ShareConfig;
+  externals?: Configuration["externals"];
+  esmFullSpecific?: Boolean;
   force?: boolean;
 }
 
@@ -55,11 +57,15 @@ function getWebpackConfig({
   entry,
   outputDir,
   shared,
+  externals,
+  esmFullSpecific,
 }: {
   deps: Dep[];
   entry: string;
   outputDir: string;
   shared?: ShareConfig;
+  externals: Configuration["externals"];
+  esmFullSpecific: Boolean;
 }) {
   const exposes = deps.reduce<Record<string, string>>((memo, dep) => {
     memo[`./${dep.request}`] = dep.filename;
@@ -73,9 +79,10 @@ function getWebpackConfig({
     outputDir,
     publicPath: DETAULT_PUBLIC_PATH,
     shared,
+    externals,
+    esmFullSpecific,
     exposes,
   });
-
   return chain.toConfig();
 }
 
@@ -153,6 +160,7 @@ export class Bundler {
     let error: any = null;
     this._isBuilding = true;
     let hasBuild: boolean = false;
+    let timer = new Date().getTime();
     try {
       [hasBuild] = await this._buildDll(snapshot, options);
     } catch (err) {
@@ -170,7 +178,10 @@ export class Bundler {
     this._completeFns = [];
 
     if (hasBuild) {
-      console.log(`[@shuvi/dll]: Bundle Success`);
+      console.log(
+        `[@shuvi/dll]: Bundle Success, cost ${new Date().getTime() - timer}ms`,
+      );
+      timer = new Date().getTime();
     }
   }
 
@@ -178,7 +189,13 @@ export class Bundler {
     snapshot: ModuleSnapshot,
     options: BuildOptions,
   ): Promise<[boolean, Metadata]> {
-    const { shared = {}, outputDir, force } = options;
+    const {
+      externals = {},
+      shared = {},
+      outputDir,
+      force,
+      esmFullSpecific = true,
+    } = options;
 
     const mainHash = getMainHash(options);
     const dllDir = getDllDir(outputDir);
@@ -225,6 +242,8 @@ export class Bundler {
         deps,
         entry: join(depsDir, "index.js"),
         shared,
+        externals,
+        esmFullSpecific,
         outputDir: dllPendingDir,
       }),
     );

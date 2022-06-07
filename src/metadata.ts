@@ -53,7 +53,7 @@ export function writeMetadata(root: string, content: Metadata) {
   lastMetadata = content;
 }
 
-export function getUpate(root: string): Update {
+export function getUpdate(root: string): Update {
   const file = join(getDllDir(root), UPDATE_FILENAME);
   if (!existsSync(file)) {
     return {

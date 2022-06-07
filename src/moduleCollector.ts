@@ -1,4 +1,4 @@
-import { getMetadata, getUpate } from "./metadata";
+import { getMetadata, getUpdate } from "./metadata";
 
 const NODE_MODULES = /node_modules/;
 
@@ -48,12 +48,12 @@ class ModuleCollector {
       return false;
     }
 
-    if (this._include.some(p => p.test(request))) {
-      return true;
-    }
-
     if (this._exclude.some(p => p.test(request))) {
       return false;
+    }
+
+    if (this._include.some(p => p.test(request))) {
+      return true;
     }
 
     return NODE_MODULES.test(resource);
@@ -99,7 +99,7 @@ export function getModuleCollector(
   },
 ) {
   const modules = getMetadata(options.cacheDir).modules;
-  const discoveredModules = getUpate(options.cacheDir).discovered;
+  const discoveredModules = getUpdate(options.cacheDir).discovered;
   const collector = new ModuleCollector({
     include: options.include,
     exclude: options.exclude,

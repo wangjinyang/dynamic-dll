@@ -5,7 +5,7 @@ export type SnapshotListener = (snapshot: ModuleSnapshot) => void;
 
 export interface DynamicDLLPluginOptions {
   collector: ModuleCollector;
-  webpackPath: string;
+  resolveWebpackModule: (s: string) => ReturnType<typeof require>;
   dllName: string;
   onSnapshot: SnapshotListener;
   shareScope?: string;
@@ -15,7 +15,7 @@ const PLUGIN_NAME = "DLLBuildDeps";
 
 export class DynamicDLLPlugin {
   private _collector: ModuleCollector;
-  private _webpackPath: string;
+  private _resolveWebpackModule: ReturnType<typeof require>;
   private _dllName: string;
   private _shareScope?: string;
   private _timer: null | ReturnType<typeof setTimeout>;
@@ -24,7 +24,7 @@ export class DynamicDLLPlugin {
   private _disabled: boolean;
 
   constructor(opts: DynamicDLLPluginOptions) {
-    this._webpackPath = opts.webpackPath;
+    this._resolveWebpackModule = opts.resolveWebpackModule;
     this._dllName = opts.dllName;
     this._shareScope = opts.shareScope;
     this._onSnapshot = opts.onSnapshot;
@@ -77,7 +77,9 @@ export class DynamicDLLPlugin {
         const replaceValue = `${name}/${request}`;
         resolveData.request = replaceValue;
         this._matchCache.set(request, replaceValue);
-        const RemoteModule = require(`${this._webpackPath}/lib/container/RemoteModule`);
+        const RemoteModule = this._resolveWebpackModule(
+          `webpack/lib/container/RemoteModule`,
+        );
         return new RemoteModule(
           resolveData.request,
           [`webpack/container/reference/${name}`],

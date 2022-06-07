@@ -2,6 +2,7 @@ import webpack from "webpack";
 import WebpackChain from "webpack-chain";
 import path from "path";
 import { StripSourceMapUrlPlugin } from "./plugins/stripSourceMapUrlPlugin";
+import type { Configuration } from "webpack";
 
 export type ShareConfig = Record<string, any>;
 
@@ -12,8 +13,22 @@ export interface ConfigOptions {
   outputDir: string;
   publicPath: string;
   shared?: ShareConfig;
+  externals: Configuration["externals"];
+  esmFullSpecific: Boolean;
   exposes: Record<string, string>;
 }
+
+const moduleFileExtensions = [
+  ".web.mjs",
+  ".mjs",
+  ".web.cjs",
+  ".cjs",
+  ".web.js",
+  ".js",
+  ".json",
+  ".web.jsx",
+  ".jsx",
+];
 
 export function getConfig({
   name,
@@ -22,6 +37,8 @@ export function getConfig({
   outputDir,
   publicPath,
   shared,
+  externals,
+  esmFullSpecific,
   exposes,
 }: ConfigOptions) {
   const config = new WebpackChain();
@@ -66,7 +83,7 @@ export function getConfig({
     },
   });
 
-  config.resolve.extensions.merge([".js", ".jsx", ".json"]);
+  config.resolve.extensions.merge(moduleFileExtensions);
 
   config.module.set("strictExportPresence", true);
 
@@ -74,19 +91,30 @@ export function getConfig({
   config.module
     .rule("pre")
     .enforce("pre")
-    .test(/\.(js|mjs|jsx)$/)
+    .test(/\.(js|mjs|cjs|jsx)$/)
     .use("source-map-loader")
     .loader(require.resolve("source-map-loader"));
 
+  // x-ref: https://github.com/webpack/webpack/issues/11467
+  if (!esmFullSpecific) {
+    config.module
+      .rule("webpackPatch")
+      .test(/\.(c|m)?js/)
+      .resolve.set("fullySpecified", false);
+  }
+
   config.module
     .rule("js")
-    .test(/\.(js|mjs|jsx)$/)
+    .test(/\.(js|mjs|cjs|jsx)$/)
+    .exclude.add(/@babel(?:\/|\\{1,2})runtime/)
+    .end()
     .use("babel-loader")
     .loader(require.resolve("babel-loader"))
     .options({
       babelrc: false,
       configFile: false,
       compact: false,
+      sourceType: "unambiguous",
       presets: [
         [
           require.resolve("@babel/preset-env"),
@@ -154,6 +182,8 @@ export function getConfig({
       shared,
     },
   ]);
+
+  config.externals(externals);
 
   return config;
 }
