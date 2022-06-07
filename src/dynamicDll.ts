@@ -18,6 +18,7 @@ import { getModuleCollector, ModuleSnapshot } from "./moduleCollector";
 import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
 import { writeUpdate } from "./metadata";
 import { getDllDir, isString, isArray } from "./utils";
+import { listDiff } from "./helpers/list-diff";
 
 type IResolveWebpackModule = <T extends string>(
   path: T,
@@ -40,6 +41,28 @@ export class DynamicDll {
   private _resolveWebpackModule: IResolveWebpackModule;
   private _dllPlugin: DynamicDLLPlugin;
 
+  private calculateSnapshotComplement(
+    lastTimeSnapshot: ModuleSnapshot = {},
+    currentTimeSnapshot: ModuleSnapshot = {},
+  ) {
+    const lastNames = Object.keys(lastTimeSnapshot) || [];
+    const currentNames = Object.keys(currentTimeSnapshot) || [];
+    return listDiff(lastNames, currentNames).filter(item => {
+      return this.checkNotInNodeModules(item);
+    });
+  }
+
+  private checkNotInNodeModules(libraryName: string): boolean {
+    try {
+      require.resolve(libraryName, {
+        paths: [process.cwd(), __dirname],
+      });
+      return false;
+    } catch (e) {
+      return true;
+    }
+  }
+
   constructor(opts: IOpts) {
     this._opts = opts;
     this._dir = opts.dir || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
@@ -56,13 +79,21 @@ export class DynamicDll {
       dllName: NAME,
       collector,
       resolveWebpackModule: this._resolveWebpackModule,
-      onSnapshot: async snapshot => {
+      onSnapshot: async (snapshot,currentTimeSnapshot) => {
         if (hasBuilt) {
           writeUpdate(this._dir, snapshot);
           return;
         }
+        const diffNames =
+          this.calculateSnapshotComplement(snapshot, currentTimeSnapshot) || [];
 
-        await this._buildDLL(snapshot);
+        diffNames.forEach(lib => {
+          collector.remove(lib);
+        });
+
+        const newSnapshot = collector.snapshot();
+        //collector.
+        await this._buildDLL(newSnapshot);
         this._dllPlugin.disableDllReference();
         hasBuilt = true;
       },

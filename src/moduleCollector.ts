@@ -21,6 +21,7 @@ class ModuleCollector {
   private _include;
   private _exclude;
   private _modules!: Record<string, ModuleInfo>;
+  private _currentTimeModules: Record<string, ModuleInfo> = {};
   private _changed!: boolean;
 
   constructor(options: ModuleCollectorOptions) {
@@ -65,6 +66,7 @@ class ModuleCollector {
 
   add(id: string, { libraryPath, version }: ModuleInfo) {
     const modules = this._modules;
+    const currentTimeModules = this._currentTimeModules;
     const mod = modules[id];
     if (!mod) {
       modules[id] = {
@@ -72,6 +74,7 @@ class ModuleCollector {
         version,
       };
       this._changed = true;
+      currentTimeModules[id] = modules[id];
     } else {
       const { version: oldVersion } = mod;
       if (oldVersion !== version) {
@@ -81,13 +84,22 @@ class ModuleCollector {
         };
         this._changed = true;
       }
+      currentTimeModules[id] = modules[id];
     }
+  }
+
+  remove(id: string) {
+    delete this._modules[id];
   }
 
   snapshot(): ModuleSnapshot {
     const snapshot = { ...this._modules };
     this._changed = false;
     return snapshot;
+  }
+
+  currentTimeSnapShot(): ModuleSnapshot {
+    return { ...this._currentTimeModules };
   }
 }
 

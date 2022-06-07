@@ -1,7 +1,10 @@
 import type { Compiler, Stats } from "webpack";
 import { ModuleCollector, ModuleSnapshot } from "../moduleCollector";
 
-export type SnapshotListener = (snapshot: ModuleSnapshot) => void;
+export type SnapshotListener = (
+  snapshot: ModuleSnapshot,
+  currentTimeSnapshot: ModuleSnapshot,
+) => void;
 
 export interface DynamicDLLPluginOptions {
   collector: ModuleCollector;
@@ -10,6 +13,8 @@ export interface DynamicDLLPluginOptions {
   onSnapshot: SnapshotListener;
   shareScope?: string;
 }
+
+// todo:
 
 const PLUGIN_NAME = "DLLBuildDeps";
 
@@ -97,7 +102,8 @@ export class DynamicDLLPlugin {
 
         this._timer = setTimeout(() => {
           const snapshot = this._collector.snapshot();
-          this._onSnapshot(snapshot);
+          const currentTimeSnapshot = this._collector.currentTimeSnapShot();
+          this._onSnapshot(snapshot, currentTimeSnapshot);
         }, 500);
       }
     });
