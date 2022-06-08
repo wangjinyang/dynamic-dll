@@ -1,5 +1,3 @@
-import { getMetadata, getUpdate } from "./metadata";
-
 const NODE_MODULES = /node_modules/;
 
 export interface ModuleInfo {
@@ -8,7 +6,6 @@ export interface ModuleInfo {
 }
 
 export interface ModuleCollectorOptions {
-  modules: ModuleSnapshot;
   include?: RegExp[];
   exclude?: RegExp[];
 }
@@ -20,14 +17,13 @@ export interface ModuleSnapshot {
 class ModuleCollector {
   private _include;
   private _exclude;
-  private _modules!: Record<string, ModuleInfo>;
+  private _modules: Record<string, ModuleInfo> = {};
   private _changed!: boolean;
 
   constructor(options: ModuleCollectorOptions) {
     this._include = options.include || [];
     this._exclude = options.exclude || [];
     this._changed = false;
-    this._modules = options.modules;
   }
 
   shouldCollect({
@@ -93,22 +89,9 @@ class ModuleCollector {
 
 export type { ModuleCollector };
 
-export function getModuleCollector(
-  options: Omit<ModuleCollectorOptions, "modules"> & {
-    cacheDir: string;
-  },
-) {
-  const modules = getMetadata(options.cacheDir).modules;
-  const discoveredModules = getUpdate(options.cacheDir).discovered;
-  const collector = new ModuleCollector({
+export function getModuleCollector(options: ModuleCollectorOptions) {
+  return new ModuleCollector({
     include: options.include,
     exclude: options.exclude,
-    modules,
   });
-
-  Object.keys(discoveredModules).forEach(name => {
-    collector.add(name, discoveredModules[name]);
-  });
-
-  return collector;
 }

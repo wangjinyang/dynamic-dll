@@ -1,20 +1,27 @@
 import type { Compiler, Stats } from "webpack";
-import { ModuleCollector, ModuleSnapshot } from "../moduleCollector";
+import {
+  getModuleCollector,
+  ModuleCollector,
+  ModuleCollectorOptions,
+  ModuleSnapshot,
+} from "../moduleCollector";
 
 export type SnapshotListener = (snapshot: ModuleSnapshot) => void;
 
 export interface DynamicDLLPluginOptions {
-  collector: ModuleCollector;
+  //collector: ModuleCollector;
   resolveWebpackModule: (s: string) => ReturnType<typeof require>;
   dllName: string;
   onSnapshot: SnapshotListener;
   shareScope?: string;
 }
 
+// todo:
+
 const PLUGIN_NAME = "DLLBuildDeps";
 
 export class DynamicDLLPlugin {
-  private _collector: ModuleCollector;
+  private _collector!: ModuleCollector;
   private _resolveWebpackModule: ReturnType<typeof require>;
   private _dllName: string;
   private _shareScope?: string;
@@ -23,12 +30,15 @@ export class DynamicDLLPlugin {
   private _onSnapshot: SnapshotListener;
   private _disabled: boolean;
 
-  constructor(opts: DynamicDLLPluginOptions) {
+  constructor(opts: DynamicDLLPluginOptions & ModuleCollectorOptions) {
     this._resolveWebpackModule = opts.resolveWebpackModule;
     this._dllName = opts.dllName;
     this._shareScope = opts.shareScope;
     this._onSnapshot = opts.onSnapshot;
-    this._collector = opts.collector;
+    this._collector = getModuleCollector({
+      include: opts.include,
+      exclude: opts.exclude,
+    });
     this._matchCache = new Map();
     this._timer = null;
     this._disabled = false;
@@ -42,18 +52,19 @@ export class DynamicDLLPlugin {
     compiler.hooks.normalModuleFactory.tap(PLUGIN_NAME, nmf => {
       nmf.hooks.beforeResolve.tap(PLUGIN_NAME, resolveData => {
         const { request } = resolveData;
+
         const replaceValue = this._matchCache.get(request);
+
         if (replaceValue) {
           resolveData.request = replaceValue;
         }
       });
 
       nmf.hooks.createModule.tap(PLUGIN_NAME, (_createData, resolveData) => {
-        const collector = this._collector;
         const { createData = {}, request } = resolveData;
         const { resource = "" } = createData;
         if (
-          !collector.shouldCollect({
+          !this._collector.shouldCollect({
             request,
             context: resolveData.context,
             resource,
@@ -65,7 +76,7 @@ export class DynamicDLLPlugin {
         const {
           resourceResolveData: { descriptionFileData: { version = null } } = {},
         } = createData;
-        collector.add(request, {
+        this._collector.add(request, {
           libraryPath: resource,
           version,
         });
@@ -96,8 +107,7 @@ export class DynamicDLLPlugin {
         }
 
         this._timer = setTimeout(() => {
-          const snapshot = this._collector.snapshot();
-          this._onSnapshot(snapshot);
+          this._onSnapshot(this._collector.snapshot());
         }, 500);
       }
     });

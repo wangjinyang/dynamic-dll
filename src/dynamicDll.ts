@@ -14,10 +14,11 @@ import {
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
 import { Bundler, ShareConfig } from "./bundler";
-import { getModuleCollector, ModuleSnapshot } from "./moduleCollector";
+import { ModuleSnapshot } from "./moduleCollector";
 import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
-import { writeUpdate } from "./metadata";
+import { getMetadata, writeUpdate } from "./metadata";
 import { getDllDir, isString, isArray } from "./utils";
+import { checkNotInNodeModules } from "./helpers/check-not-in-node-modules";
 
 type IResolveWebpackModule = <T extends string>(
   path: T,
@@ -39,35 +40,53 @@ export class DynamicDll {
   private _dir: string;
   private _resolveWebpackModule: IResolveWebpackModule;
   private _dllPlugin: DynamicDLLPlugin;
+  private _hasBuilt: boolean = false;
 
   constructor(opts: IOpts) {
     this._opts = opts;
     this._dir = opts.dir || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
     this._resolveWebpackModule = opts.resolveWebpackModule || require;
-    const collector = getModuleCollector({
-      include: opts.include,
-      exclude: opts.exclude,
-      cacheDir: this._dir,
-    });
+
     this._bundler = new Bundler();
 
-    let hasBuilt = false;
     this._dllPlugin = new DynamicDLLPlugin({
+      include: opts.include,
+      exclude: opts.exclude,
       dllName: NAME,
-      collector,
       resolveWebpackModule: this._resolveWebpackModule,
-      onSnapshot: async snapshot => {
-        if (hasBuilt) {
-          writeUpdate(this._dir, snapshot);
-          return;
-        }
-
-        await this._buildDLL(snapshot);
-        this._dllPlugin.disableDllReference();
-        hasBuilt = true;
-      },
+      onSnapshot: this.handleSnapshot,
     });
   }
+
+  private getRemovedModules(
+    snapshot: ModuleSnapshot,
+    originModules: ModuleSnapshot,
+  ) {
+    return Object.keys(originModules).filter(key => {
+      if (snapshot[key]) {
+        return false;
+      }
+      return checkNotInNodeModules(key);
+    });
+  }
+
+  private handleSnapshot = async (snapshot: ModuleSnapshot) => {
+    if (this._hasBuilt) {
+      writeUpdate(this._dir, snapshot);
+      return;
+    }
+    const originModules = getMetadata(this._dir).modules;
+    const diffNames = this.getRemovedModules(snapshot, originModules);
+    const requiredSnapshot = { ...originModules, ...snapshot };
+
+    diffNames.forEach(lib => {
+      delete requiredSnapshot[lib];
+    });
+
+    await this._buildDLL(requiredSnapshot);
+    this._dllPlugin.disableDllReference();
+    this._hasBuilt = true;
+  };
 
   middleware = async (
     req: IncomingMessage,
