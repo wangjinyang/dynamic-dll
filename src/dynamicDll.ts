@@ -58,7 +58,7 @@ export class DynamicDll {
     });
   }
 
-  private calculateSnapshotComplement(
+  private getRemovedModules(
     snapshot: ModuleSnapshot,
     originModules: ModuleSnapshot,
   ) {
@@ -76,7 +76,7 @@ export class DynamicDll {
       return;
     }
     const originModules = getMetadata(this._dir).modules;
-    const diffNames = this.calculateSnapshotComplement(snapshot, originModules);
+    const diffNames = this.getRemovedModules(snapshot, originModules);
     const requiredSnapshot = { ...originModules, ...snapshot };
 
     diffNames.forEach(lib => {

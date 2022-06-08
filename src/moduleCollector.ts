@@ -80,10 +80,6 @@ class ModuleCollector {
     }
   }
 
-  remove(id: string) {
-    delete this._modules[id];
-  }
-
   snapshot(): ModuleSnapshot {
     const snapshot = { ...this._modules };
     this._changed = false;
