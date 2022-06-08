@@ -1,5 +1,3 @@
-import { getMetadata, getUpdate } from "./metadata";
-
 const NODE_MODULES = /node_modules/;
 
 export interface ModuleInfo {
@@ -8,7 +6,6 @@ export interface ModuleInfo {
 }
 
 export interface ModuleCollectorOptions {
-  modules: ModuleSnapshot;
   include?: RegExp[];
   exclude?: RegExp[];
 }
@@ -17,18 +14,16 @@ export interface ModuleSnapshot {
   [key: string]: ModuleInfo;
 }
 
-class ModuleCollector {
+export class ModuleCollector {
   private _include;
   private _exclude;
-  private _modules!: Record<string, ModuleInfo>;
-  private _currentTimeModules: Record<string, ModuleInfo> = {};
+  private _modules: Record<string, ModuleInfo> = {};
   private _changed!: boolean;
 
   constructor(options: ModuleCollectorOptions) {
     this._include = options.include || [];
     this._exclude = options.exclude || [];
     this._changed = false;
-    this._modules = options.modules;
   }
 
   shouldCollect({
@@ -66,7 +61,6 @@ class ModuleCollector {
 
   add(id: string, { libraryPath, version }: ModuleInfo) {
     const modules = this._modules;
-    const currentTimeModules = this._currentTimeModules;
     const mod = modules[id];
     if (!mod) {
       modules[id] = {
@@ -74,7 +68,6 @@ class ModuleCollector {
         version,
       };
       this._changed = true;
-      currentTimeModules[id] = modules[id];
     } else {
       const { version: oldVersion } = mod;
       if (oldVersion !== version) {
@@ -84,7 +77,6 @@ class ModuleCollector {
         };
         this._changed = true;
       }
-      currentTimeModules[id] = modules[id];
     }
   }
 
@@ -97,30 +89,4 @@ class ModuleCollector {
     this._changed = false;
     return snapshot;
   }
-
-  currentTimeSnapShot(): ModuleSnapshot {
-    return { ...this._currentTimeModules };
-  }
-}
-
-export type { ModuleCollector };
-
-export function getModuleCollector(
-  options: Omit<ModuleCollectorOptions, "modules"> & {
-    cacheDir: string;
-  },
-) {
-  const modules = getMetadata(options.cacheDir).modules;
-  const discoveredModules = getUpdate(options.cacheDir).discovered;
-  const collector = new ModuleCollector({
-    include: options.include,
-    exclude: options.exclude,
-    modules,
-  });
-
-  Object.keys(discoveredModules).forEach(name => {
-    collector.add(name, discoveredModules[name]);
-  });
-
-  return collector;
 }

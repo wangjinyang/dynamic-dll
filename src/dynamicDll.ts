@@ -14,11 +14,11 @@ import {
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
 import { Bundler, ShareConfig } from "./bundler";
-import { getModuleCollector, ModuleSnapshot } from "./moduleCollector";
+import { ModuleCollector, ModuleSnapshot } from "./moduleCollector";
 import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
-import { writeUpdate } from "./metadata";
+import { getMetadata, writeUpdate } from "./metadata";
 import { getDllDir, isString, isArray } from "./utils";
-import { listDiff } from "./helpers/list-diff";
+import { checkNotInNodeModules } from "./helpers/check-not-in-node-modules";
 
 type IResolveWebpackModule = <T extends string>(
   path: T,
@@ -40,65 +40,55 @@ export class DynamicDll {
   private _dir: string;
   private _resolveWebpackModule: IResolveWebpackModule;
   private _dllPlugin: DynamicDLLPlugin;
-
-  private calculateSnapshotComplement(
-    lastTimeSnapshot: ModuleSnapshot = {},
-    currentTimeSnapshot: ModuleSnapshot = {},
-  ) {
-    const lastNames = Object.keys(lastTimeSnapshot) || [];
-    const currentNames = Object.keys(currentTimeSnapshot) || [];
-    return listDiff(lastNames, currentNames).filter(item => {
-      return this.checkNotInNodeModules(item);
-    });
-  }
-
-  private checkNotInNodeModules(libraryName: string): boolean {
-    try {
-      require.resolve(libraryName, {
-        paths: [process.cwd(), __dirname],
-      });
-      return false;
-    } catch (e) {
-      return true;
-    }
-  }
+  private _hasBuilt: boolean = false;
 
   constructor(opts: IOpts) {
     this._opts = opts;
     this._dir = opts.dir || join(process.cwd(), DEFAULT_TMP_DIR_NAME);
     this._resolveWebpackModule = opts.resolveWebpackModule || require;
-    const collector = getModuleCollector({
-      include: opts.include,
-      exclude: opts.exclude,
-      cacheDir: this._dir,
-    });
+
     this._bundler = new Bundler();
 
-    let hasBuilt = false;
     this._dllPlugin = new DynamicDLLPlugin({
+      include: opts.include,
+      exclude: opts.exclude,
       dllName: NAME,
-      collector,
       resolveWebpackModule: this._resolveWebpackModule,
-      onSnapshot: async (snapshot,currentTimeSnapshot) => {
-        if (hasBuilt) {
-          writeUpdate(this._dir, snapshot);
-          return;
-        }
-        const diffNames =
-          this.calculateSnapshotComplement(snapshot, currentTimeSnapshot) || [];
-
-        diffNames.forEach(lib => {
-          collector.remove(lib);
-        });
-
-        const newSnapshot = collector.snapshot();
-        //collector.
-        await this._buildDLL(newSnapshot);
-        this._dllPlugin.disableDllReference();
-        hasBuilt = true;
-      },
+      onSnapshot: this.handleSnapshot,
     });
   }
+
+  private calculateSnapshotComplement(
+    snapshot: ModuleSnapshot,
+    originModules: ModuleSnapshot,
+  ) {
+    return Object.keys(originModules).filter(key => {
+      if (snapshot[key]) {
+        return false;
+      }
+      return checkNotInNodeModules(key);
+    });
+  }
+
+  private handleSnapshot = async (collector: ModuleCollector) => {
+    const snapshot = collector.snapshot();
+    if (this._hasBuilt) {
+      writeUpdate(this._dir, snapshot);
+      return;
+    }
+    const originModules = getMetadata(this._dir).modules;
+    const diffNames = this.calculateSnapshotComplement(snapshot, originModules);
+
+    diffNames.forEach(lib => {
+      collector.remove(lib);
+    });
+
+    const newSnapshot = collector.snapshot();
+
+    await this._buildDLL(newSnapshot);
+    this._dllPlugin.disableDllReference();
+    this._hasBuilt = true;
+  };
 
   middleware = async (
     req: IncomingMessage,
