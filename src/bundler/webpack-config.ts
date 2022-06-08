@@ -106,7 +106,7 @@ export function getConfig({
 
   const DLL_VERSION = require("../../package.json").version;
 
-  const stringifiedEnvs = Object.entries({
+  const stringifiedConfig = Object.entries({
     esmFullSpecific,
     shared,
   }).reduce((prev: string, [key, value]) => {
@@ -117,7 +117,7 @@ export function getConfig({
     cacheDirectory: path.join(outputDir, "../cache"),
     type: "filesystem",
     name: `dll-cache}-${config.get("mode")}`,
-    version: `${DLL_VERSION}|${stringifiedEnvs}`,
+    version: `${DLL_VERSION}|${stringifiedConfig}`,
   });
 
   config.plugin("private/ignore-plugin").use(webpack.IgnorePlugin, [
