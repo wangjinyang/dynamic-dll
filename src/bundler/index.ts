@@ -131,11 +131,6 @@ async function webpackBuild(config: Configuration) {
 
 function isSnapshotSame(pre: ModuleSnapshot, cur: ModuleSnapshot): boolean {
   const keys = Object.keys(cur);
-  const preKeys = Object.keys(pre);
-
-  if (keys.length !== preKeys.length) {
-    return false;
-  }
 
   for (let index = 0; index < keys.length; index++) {
     const id = keys[index];

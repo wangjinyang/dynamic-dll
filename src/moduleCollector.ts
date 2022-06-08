@@ -14,7 +14,7 @@ export interface ModuleSnapshot {
   [key: string]: ModuleInfo;
 }
 
-export class ModuleCollector {
+class ModuleCollector {
   private _include;
   private _exclude;
   private _modules: Record<string, ModuleInfo> = {};
@@ -89,4 +89,13 @@ export class ModuleCollector {
     this._changed = false;
     return snapshot;
   }
+}
+
+export type { ModuleCollector };
+
+export function getModuleCollector(options: ModuleCollectorOptions) {
+  return new ModuleCollector({
+    include: options.include,
+    exclude: options.exclude,
+  });
 }

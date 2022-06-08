@@ -14,7 +14,7 @@ import {
 import { lookup } from "mrmime";
 import WebpackVirtualModules from "webpack-virtual-modules";
 import { Bundler, ShareConfig } from "./bundler";
-import { ModuleCollector, ModuleSnapshot } from "./moduleCollector";
+import { ModuleSnapshot } from "./moduleCollector";
 import { DynamicDLLPlugin } from "./webpackPlugins/DynamicDLLPlugin";
 import { getMetadata, writeUpdate } from "./metadata";
 import { getDllDir, isString, isArray } from "./utils";
@@ -70,22 +70,20 @@ export class DynamicDll {
     });
   }
 
-  private handleSnapshot = async (collector: ModuleCollector) => {
-    const snapshot = collector.snapshot();
+  private handleSnapshot = async (snapshot: ModuleSnapshot) => {
     if (this._hasBuilt) {
       writeUpdate(this._dir, snapshot);
       return;
     }
     const originModules = getMetadata(this._dir).modules;
     const diffNames = this.calculateSnapshotComplement(snapshot, originModules);
+    const requiredSnapshot = { ...originModules };
 
     diffNames.forEach(lib => {
-      collector.remove(lib);
+      delete requiredSnapshot[lib];
     });
 
-    const newSnapshot = collector.snapshot();
-
-    await this._buildDLL(newSnapshot);
+    await this._buildDLL(requiredSnapshot);
     this._dllPlugin.disableDllReference();
     this._hasBuilt = true;
   };

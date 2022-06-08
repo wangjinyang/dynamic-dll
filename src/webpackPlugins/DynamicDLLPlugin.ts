@@ -1,7 +1,12 @@
 import type { Compiler, Stats } from "webpack";
-import { ModuleCollector, ModuleCollectorOptions } from "../moduleCollector";
+import {
+  getModuleCollector,
+  ModuleCollector,
+  ModuleCollectorOptions,
+  ModuleSnapshot,
+} from "../moduleCollector";
 
-export type SnapshotListener = (collector: ModuleCollector) => void;
+export type SnapshotListener = (snapshot: ModuleSnapshot) => void;
 
 export interface DynamicDLLPluginOptions {
   //collector: ModuleCollector;
@@ -30,7 +35,7 @@ export class DynamicDLLPlugin {
     this._dllName = opts.dllName;
     this._shareScope = opts.shareScope;
     this._onSnapshot = opts.onSnapshot;
-    this._collector = new ModuleCollector({
+    this._collector = getModuleCollector({
       include: opts.include,
       exclude: opts.exclude,
     });
@@ -44,11 +49,7 @@ export class DynamicDLLPlugin {
   }
 
   apply(compiler: Compiler): void {
-    // compiler.hooks.watchRun.tap(PLUGIN_NAME,(compiler) => {
-    //   // 为什么会一次编译执行多次？
-    // })
     compiler.hooks.normalModuleFactory.tap(PLUGIN_NAME, nmf => {
-      // 为什么会一次编译执行多次？
       nmf.hooks.beforeResolve.tap(PLUGIN_NAME, resolveData => {
         const { request } = resolveData;
 
@@ -106,7 +107,7 @@ export class DynamicDLLPlugin {
         }
 
         this._timer = setTimeout(() => {
-          this._onSnapshot(this._collector);
+          this._onSnapshot(this._collector.snapshot());
         }, 500);
       }
     });
