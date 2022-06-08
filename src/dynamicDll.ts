@@ -77,7 +77,7 @@ export class DynamicDll {
     }
     const originModules = getMetadata(this._dir).modules;
     const diffNames = this.calculateSnapshotComplement(snapshot, originModules);
-    const requiredSnapshot = { ...originModules };
+    const requiredSnapshot = { ...originModules, ...snapshot };
 
     diffNames.forEach(lib => {
       delete requiredSnapshot[lib];
