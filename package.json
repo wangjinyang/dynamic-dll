@@ -43,7 +43,6 @@
     "esbuild-loader": "^2.19.0",
     "fs-extra": "10.0.1",
     "mrmime": "1.0.0",
-    "speed-measure-webpack-plugin": "^1.5.0",
     "tiny-invariant": "1.2.0",
     "webpack-chain": "^6.5.1",
     "webpack-virtual-modules": "0.4.3"
