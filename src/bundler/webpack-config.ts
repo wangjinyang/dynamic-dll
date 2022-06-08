@@ -1,7 +1,6 @@
+import path from "path";
 import webpack from "webpack";
 import WebpackChain from "webpack-chain";
-import path from "path";
-import { StripSourceMapUrlPlugin } from "./plugins/stripSourceMapUrlPlugin";
 import type { Configuration } from "webpack";
 
 export type ShareConfig = Record<string, any>;
@@ -87,14 +86,6 @@ export function getConfig({
 
   config.module.set("strictExportPresence", true);
 
-  // Handle node_modules packages that contain sourcemaps
-  config.module
-    .rule("pre")
-    .enforce("pre")
-    .test(/\.(js|mjs|cjs|jsx)$/)
-    .use("source-map-loader")
-    .loader(require.resolve("source-map-loader"));
-
   // x-ref: https://github.com/webpack/webpack/issues/11467
   if (!esmFullSpecific) {
     config.module
@@ -106,59 +97,29 @@ export function getConfig({
   config.module
     .rule("js")
     .test(/\.(js|mjs|cjs|jsx)$/)
-    .exclude.add(/@babel(?:\/|\\{1,2})runtime/)
-    .end()
-    .use("babel-loader")
-    .loader(require.resolve("babel-loader"))
+    .use("esbuild-loader")
+    .loader(require.resolve("esbuild-loader"))
     .options({
-      babelrc: false,
-      configFile: false,
-      compact: false,
-      sourceType: "unambiguous",
-      presets: [
-        [
-          require.resolve("@babel/preset-env"),
-          {
-            useBuiltIns: false,
-            // Exclude transforms that make all code slower
-            exclude: ["transform-typeof-symbol"],
-          },
-        ],
-        require.resolve("@babel/preset-react"),
-      ],
-      plugins: [
-        [
-          require.resolve("@babel/plugin-transform-runtime"),
-          {
-            corejs: false,
-            helpers: true,
-            // By default, babel assumes babel/runtime version 7.0.0-beta.0,
-            // explicitly resolving to match the provided helper functions.
-            // https://github.com/babel/babel/issues/10261
-            version: require("@babel/runtime/package.json").version,
-            regenerator: true,
-            // https://babeljs.io/docs/en/babel-plugin-transform-runtime#useesmodules
-            // We should turn this on once the lowest version of Node LTS
-            // supports ES Modules.
-            useESModules: true,
-            // Undocumented option that lets us encapsulate our runtime, ensuring
-            // the correct version is used
-            // https://github.com/babel/babel/blob/090c364a90fe73d36a30707fc612ce037bdbbb24/packages/babel-plugin-transform-runtime/src/index.js#L35-L42
-            absoluteRuntime: path.dirname(
-              require.resolve("@babel/runtime/package.json"),
-            ),
-          },
-        ],
-      ],
-      cacheDirectory: true,
-      cacheCompression: false,
-      // Babel sourcemaps are needed for debugging into node_modules
-      // code.  Without the options below, debuggers like VSCode
-      // show incorrect code and set breakpoints on the wrong lines.
-      sourceMaps: true,
+      loader: "jsx", // Remove this if you're not using JSX
+      target: "es2015", // Syntax to compile to (see options below for possible values)
     });
 
-  config.plugin("private/strip-source-map-plugin").use(StripSourceMapUrlPlugin);
+  const DLL_VERSION = require("../../package.json").version;
+
+  const stringifiedConfig = Object.entries({
+    esmFullSpecific,
+    shared,
+  }).reduce((prev: string, [key, value]) => {
+    return `${prev}|${key}=${JSON.stringify(value)}`;
+  }, "");
+
+  config.cache({
+    cacheDirectory: path.join(outputDir, "../cache"),
+    type: "filesystem",
+    name: `dll-cache}-${config.get("mode")}`,
+    version: `${DLL_VERSION}|${stringifiedConfig}`,
+  });
+
   config.plugin("private/ignore-plugin").use(webpack.IgnorePlugin, [
     {
       resourceRegExp: /^\.\/locale$/,
