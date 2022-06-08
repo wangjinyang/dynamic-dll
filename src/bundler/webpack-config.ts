@@ -97,17 +97,27 @@ export function getConfig({
   config.module
     .rule("js")
     .test(/\.(js|mjs|cjs|jsx)$/)
-    .use("babel-loader")
+    .use("esbuild-loader")
     .loader(require.resolve("esbuild-loader"))
     .options({
       loader: "jsx", // Remove this if you're not using JSX
       target: "es2015", // Syntax to compile to (see options below for possible values)
     });
 
+  const DLL_VERSION = require("../../package.json").version;
+
+  const stringifiedEnvs = Object.entries({
+    esmFullSpecific,
+    shared,
+  }).reduce((prev: string, [key, value]) => {
+    return `${prev}|${key}=${JSON.stringify(value)}`;
+  }, "");
+
   config.cache({
     cacheDirectory: path.join(outputDir, "../cache"),
     type: "filesystem",
-    name: `dll-cache`,
+    name: `dll-cache}-${config.get("mode")}`,
+    version: `${DLL_VERSION}|${stringifiedEnvs}`,
   });
 
   config.plugin("private/ignore-plugin").use(webpack.IgnorePlugin, [
