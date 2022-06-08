@@ -83,6 +83,7 @@ function getWebpackConfig({
     esmFullSpecific,
     exposes,
   });
+
   return chain.toConfig();
 }
 
@@ -109,6 +110,7 @@ async function buildDeps({ deps, dir }: { deps: Dep[]; dir: string }) {
 
 async function webpackBuild(config: Configuration) {
   return new Promise((resolve, reject) => {
+    console.log(`[@shuvi/dll]: Bundle start`);
     const compiler = webpack(config);
     compiler.run((err, stats) => {
       if (err || stats?.hasErrors()) {
@@ -237,6 +239,7 @@ export class Bundler {
       deps,
       dir: depsDir,
     });
+    let timer = new Date().getTime();
     await webpackBuild(
       getWebpackConfig({
         deps,
@@ -247,6 +250,7 @@ export class Bundler {
         outputDir: dllPendingDir,
       }),
     );
+    console.log(`[dll Bundle time]: ${new Date().getTime() - timer}ms`);
 
     if (this._nextBuild) {
       const param = this._nextBuild;
