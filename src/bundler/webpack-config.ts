@@ -20,8 +20,6 @@ export interface ConfigOptions {
 const moduleFileExtensions = [
   ".web.mjs",
   ".mjs",
-  ".web.cjs",
-  ".cjs",
   ".web.js",
   ".js",
   ".json",
@@ -90,7 +88,7 @@ export function getConfig({
   if (!esmFullSpecific) {
     config.module
       .rule("webpackPatch")
-      .test(/\.(c|m)?js/)
+      .test(/\.m?js/)
       .resolve.set("fullySpecified", false);
   }
 
