@@ -1,6 +1,6 @@
 {
   "name": "@shuvi/dll",
-  "version": "0.0.1-pre.3",
+  "version": "0.0.1-pre.4",
   "license": "MIT",
   "homepage": "https://github.com/shuvijs/dynamic-dll",
   "repository": {
@@ -14,14 +14,13 @@
     "lib"
   ],
   "engines": {
-    "node": ">= 14.0.0"
+    "node": ">= 12.0.0"
   },
   "scripts": {
     "example": "cd example && yarn start",
     "dev": "tsc -p tsconfig.json -w",
     "prebuild": "rimraf lib",
     "build": "tsc -p tsconfig.json",
-    "postinstall": "cd example && yarn",
     "prepare": "husky install"
   },
   "husky": {
