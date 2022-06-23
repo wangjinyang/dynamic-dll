@@ -114,7 +114,7 @@ export function getConfig({
   config.cache({
     cacheDirectory: path.join(outputDir, "../cache"),
     type: "filesystem",
-    name: `dll-cache}-${config.get("mode")}`,
+    name: `dll-cache-${config.get("mode")}`,
     version: `${DLL_VERSION}|${stringifiedConfig}`,
   });
 
